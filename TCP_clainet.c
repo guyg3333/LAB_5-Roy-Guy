@@ -43,6 +43,7 @@
         if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
             perror("socket");
             exit(1);
+		//note
         }
 
         their_addr.sin_family = AF_INET;      /* host byte order */
