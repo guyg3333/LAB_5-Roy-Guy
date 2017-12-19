@@ -11,7 +11,6 @@
 #define DEBUG printf
 
 int main(int argc, char *argv[]){
-	
   int clientSocket,i,port_num;
   int Num_of_Frame;
   char buffer[1024];
@@ -44,9 +43,7 @@ int main(int argc, char *argv[]){
    	 }
 
 
-    //
-    //short port_number = (short)strtol(argv[3]);
-	//printf("%d \n",port_number);
+
 
   //
 
