@@ -7,8 +7,8 @@
 #define DEBUG	  printf //uncomment to remove all printf's
 #define FRAME_SIZE 1024
 
-int main(){
-  int welcomeSocket, newSocket,Num_of_byte,i;
+int main(int argc, char *argv[]){
+  int welcomeSocket, newSocket,Num_of_Frame,i,port_num;
   char buffer[FRAME_SIZE];
   struct sockaddr_in serverAddr;
   struct sockaddr_storage serverStorage;
@@ -19,13 +19,22 @@ int main(){
 
 
 
+  if (argc != 4) {
+              printf("./TCP_clainet <IP address> <Port> <Num of Frame >\n");
+              exit(1);
+          }
+
+      port_num = atoi(argv[2]);
+      Num_of_Frame = atoi(argv[3]);
+
+      printf("%s  %d %d \n",argv[1],port_num,Num_of_Frame);
 
 
 
 
 
   /*---- open file to sand: ----*/
-  fd = fopen("Alice.txt", "r");
+  fd = fopen("alice.txt", "r");
 
   	 if(fd ==NULL)
   	 {
@@ -44,9 +53,9 @@ int main(){
   /* Address family = Internet */
   serverAddr.sin_family = AF_INET;
   /* Set port number, using htons function to use proper byte order */
-  serverAddr.sin_port = htons(3490);
+  serverAddr.sin_port = htons(port_num);
   /* Set IP address to localhost */
-  serverAddr.sin_addr.s_addr = inet_addr("192.2.2.1");
+  serverAddr.sin_addr.s_addr = inet_addr(argv[1]);
   /* Set all bits of the padding field to 0 */
   memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
 
@@ -64,21 +73,24 @@ int main(){
   newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
 
   /*---- Send message to the socket of the incoming connection ----*/
-  while(Num_of_byte)
+  while(Num_of_Frame)
   {
 	  for(i=0;i<FRAME_SIZE;i++)
 	  	 {
 	  	 buffer[i] = fgetc(fd);
 	  	 if( feof(fd) ) {
-	  		 	  Num_of_byte = 0;
+	  		Num_of_Frame = 0;
 	  	          break ;
 	  	       }
 	  	 }
 
+	  for(i=0;i<FRAME_SIZE;i++)
+	  	DEBUG("%c",buffer[i]);
+
   //strcpy(buffer,"Hello World\n");
   send(newSocket,buffer,1024,0);
   DEBUG("send \n");
-  Num_of_byte--;
+  Num_of_Frame--;
   }
   close(newSocket);
 
