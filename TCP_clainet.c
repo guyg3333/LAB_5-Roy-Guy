@@ -1,75 +1,104 @@
-/***************************************************************************/
-/*                                                                         */    
-/* Client program which gets as parameter the server name or               */    
-/*     address and tries to send the data into non-blocking server.        */    
-/*                                                                         */    
-/* The message is sent after 5 seconds of wait                             */    
-/*                                                                         */    
-/*                                                                         */    
-/* based on Beej's program - look in the simple TCp client for further doc.*/    
-/*                                                                         */    
-/*                                                                         */    
-/***************************************************************************/
-    #include <stdio.h> 
-    #include <stdlib.h> 
-    #include <errno.h> 
-    #include <string.h> 
-    #include <netdb.h> 
-    #include <sys/types.h> 
-    #include <netinet/in.h> 
-    #include <sys/socket.h> 
-    #include <unistd.h>
+/****************** CLIENT CODE ****************/
 
-    #define PORT 3490    /* the port client will be connecting to */
-    #define MAXDATASIZE 1024 /* max number of bytes we can get at once */
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <string.h>
+#include <fcntl.h>
 
-    int main(int argc, char *argv[])
-    {
-        int sockfd, numbytes;  
-        char buf[MAXDATASIZE];
-        struct hostent *he;
-        struct sockaddr_in their_addr; /* connector's address information */
+#define PORT_NUM 3490
+#define IP_ADDR "192.2.2.1"
+#define DEBUG printf
 
-        if (argc != 2) {
-            fprintf(stderr,"usage: client hostname\n");
-            exit(1);
-        }
-
-        if ((he=gethostbyname(argv[1])) == NULL) {  /* get the host info */
-            herror("gethostbyname");
-            exit(1);
-        }
-
-        if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-            perror("socket");
-            exit(1);
-        }
-
-        their_addr.sin_family = AF_INET;      /* host byte order */
-        their_addr.sin_port = htons(PORT);    /* short, network byte order */
-        their_addr.sin_addr = *((struct in_addr *)he->h_addr);
-        bzero(&(their_addr.sin_zero), 8);     /* zero the rest of the struct */
-
-        if (connect(sockfd, (struct sockaddr *)&their_addr,sizeof(struct sockaddr)) == -1) {
-            perror("connect");
-            exit(1);
-        }
-	while (1) {
+int main(int argc, char *argv[]){
 	
-        	if ((numbytes=recv(sockfd, buf, MAXDATASIZE, 0)) == -1) {
-            		perror("recv");
-            		exit(1);
-		}	
+  int clientSocket,i,port_num;
+  int Num_of_Frame;
+  char buffer[1024];
+  const char* str;
+  struct sockaddr_in serverAddr;
+  socklen_t addr_size;
+  FILE *fd;
 
-	        buf[numbytes] = '\0';
 
-        	printf("text=: %s \n",getpid(), buf);
-		sleep(1);
+  //
+    if (argc != 4) {
+            printf("./TCP_clainet <IP address> <Port> <Num of Frame >\n");
+            exit(1);
+        }
 
-	}
+    port_num = atoi(argv[2]);
+    Num_of_Frame = atoi(argv[3]);
 
-        close(sockfd);
+    printf("%s  %d %d \n",argv[1],port_num,Num_of_Frame);
 
-        return 0;
-    }
 
+
+    //
+    /*---- Open data logging txt file : ----*/
+     fd = fopen("myFile.txt", "w");
+   	 if(fd ==NULL)
+   	 {
+   	    	 perror("file open");
+   	    	 exit(1);
+   	 }
+
+
+    //
+    //short port_number = (short)strtol(argv[3]);
+	//printf("%d \n",port_number);
+
+  //
+
+  /*---- Create the socket. The three arguments are: ----*/
+  /* 1) Internet domain 2) Stream socket 3) Default protocol (TCP in this case) */
+  clientSocket = socket(PF_INET, SOCK_STREAM, 0);
+
+  /*---- Configure settings of the server address struct ----*/
+  /* Address family = Internet */
+  serverAddr.sin_family = AF_INET;
+  /* Set port number, using htons function to use proper byte order */
+  serverAddr.sin_port = htons(port_num);
+  /* Set IP address to localhost */
+  serverAddr.sin_addr.s_addr = inet_addr(argv[1]);
+  /* Set all bits of the padding field to 0 */
+  memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
+
+  /*---- Connect the socket to the server using the address struct ----*/
+  addr_size = sizeof serverAddr;
+  if(connect(clientSocket, (struct sockaddr *) &serverAddr, addr_size) == -1) {
+	 perror("connect");
+     exit(1);
+  }
+
+  while(Num_of_Frame)
+  {
+
+  /*---- Read the message from the server into the buffer ----*/
+  recv(clientSocket, buffer, 1024, 0);
+
+  /*---- Print the received message ----*/
+
+  printf("Data received: %s",buffer);
+
+  if(fprintf(fd,"%s",buffer)==-1)
+  	  {
+  		  perror("file");
+  		      exit(1);
+  	  }
+  bzero(buffer , 1024);
+
+  /*---- Clear buffer ----*/
+
+  //for(i=0;i<1024;i++)
+
+	//  buffer[i] = 0;
+  Num_of_Frame = Num_of_Frame-1;
+  }
+  close(clientSocket);
+  fclose(fd);
+
+  printf("end session \n");
+
+  return 0;
+}
