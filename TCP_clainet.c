@@ -11,7 +11,7 @@
 #define DEBUG printf
 
 int main(int argc, char *argv[]){
-  int clientSocket,i,port_num;
+  int clientSocket,i,port_num,rcv_f;
   int Num_of_Frame;
   char buffer[1024];
   const char* str;
@@ -67,12 +67,19 @@ int main(int argc, char *argv[]){
 	 perror("connect");
      exit(1);
   }
-
-  while(Num_of_Frame)
+  
+  rcv_f = 1;
+  while(Num_of_Frame && rcv_f)
   {
 
   /*---- Read the message from the server into the buffer ----*/
-  recv(clientSocket, buffer, 1024, 0);
+  rcv_f = recv(clientSocket, buffer, 1024, 0);
+  if(rcv_f == -1)
+  {
+	  perror("receive error")
+	  break;
+  }
+  
 
   /*---- Print the received message ----*/
 
