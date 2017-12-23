@@ -67,7 +67,7 @@ int main(int argc, char *argv[]){
 	 perror("connect");
      exit(1);
   }
-  
+
   rcv_f = 1;
   while(Num_of_Frame && rcv_f)
   {
@@ -76,10 +76,10 @@ int main(int argc, char *argv[]){
   rcv_f = recv(clientSocket, buffer, 1024, 0);
   if(rcv_f == -1)
   {
-	  perror("receive error")
+	  perror("receive error");
 	  break;
   }
-  
+
 
   /*---- Print the received message ----*/
 
