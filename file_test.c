@@ -10,9 +10,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
 int main(void) {
 
+
+//guy 
 	 FILE *fd;
 	 int i,r,num;
 	 char buffer[300] ;
