@@ -12,6 +12,7 @@ struct sockaddr_in groupSock;
 int sd;
 char databuf[1024] = "Multicast test message lol!";
 int datalen = sizeof(databuf);
+int ttl =100;
 
 int main (int argc, char *argv[ ])
 {
@@ -32,19 +33,20 @@ else
 
                      //missing num_parts,file_name
 					 //need to keep the interface section?
-//=================================================== is--it--needed?   ============================
 /* Set local interface for outbound multicast datagrams. */
 /* The IP address specified must be associated with a local, */
 /* multicast capable interface. */
+
 localInterface.s_addr = inet_addr("192.2.1.1");
-if(setsockopt(sd, IPPROTO_IP, IP_MULTICAST_IF, (char *)&localInterface, sizeof(localInterface)) < 0)
+
+if(setsockopt(sd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl , sizeof(ttl)) < 0)
 {
   perror("Setting local interface error");
   exit(1);
 }
 else
   printf("Setting the local interface...OK\n");
-//======================================================================================================
+
 
 /* Send a message to the multicast group specified by the*/
 /* groupSock sockaddr structure. */
