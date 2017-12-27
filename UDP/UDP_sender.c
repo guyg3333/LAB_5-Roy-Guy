@@ -11,11 +11,11 @@
 #define PORT 6000
 struct in_addr localInterface;
 struct sockaddr_in groupSock;
-int sd;
+int sd,i;
 char databuf[1024];
 int datalen = sizeof(databuf);
 int ttl =100;
-int Num_of_Frame = 100000;
+int Num_of_Frame = 100;
 FILE *fd;
 
 
@@ -79,7 +79,8 @@ else
   /*---- Send message to the socket of the incoming connection ----*/
   while(Num_of_Frame)
   {
-	  for(i=0;i<FRAME_SIZE;i++)
+/*
+	  for(i=0;i<datalen;i++)
 	  	 {
 	  	 databuf[i] = fgetc(fd);
 	  	 if( feof(fd) ) {
@@ -87,13 +88,13 @@ else
 	  	          break ;
 	  	       }
 	  	 }
+*/
+	fscanf(fd,"%1024c",databuf);
+	  for(i=0;i<datalen;i++)
+	  	printf("%c",databuf[i]);
 
-	  for(i=0;i<FRAME_SIZE;i++)
-	  	DEBUG("%c",buffer[i]);
-
-  //strcpy(buffer,"Hello World\n");
    sendto(sd, databuf, datalen, 0, (struct sockaddr*)&groupSock, sizeof(groupSock));
-   printf("send \n");
+   //printf("send \n");
    Num_of_Frame--;
   }
 
