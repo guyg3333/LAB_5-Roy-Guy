@@ -16,7 +16,7 @@
 
 struct sockaddr_in localSock;
 struct ip_mreq group;
-int sd;
+int sd,i = 100000;
 int datalen,read = 0;
 int optval = 1;
 char databuf[1024];
@@ -90,31 +90,36 @@ int main(int argc, char *argv[]){
 	else
 		printf("Adding multicast group...OK.\n");
 	read = 1;
-	while(read){
+	while(i){
 
 		/* Read from the socket. */
 		datalen = sizeof(databuf);
-		read = recvfrom(sd, databuf, datalen,0,INADDR_ANY,sizeof(INADDR_ANY));
+		i--;
+		read = recvfrom(sd, databuf, datalen,0,0,0);//instead of the two 0's at the end shuld be INADDR_ANY and the second one his size
 		if(read < 0)
 		{
 			perror("Reading datagram message error");
 			close(sd);
-			exit(1);
+			//exit(1);
 		}
 		else
 		{
-			printf("Data received: %s",databuf);
+			printf("%s",databuf);
 			if(fprintf(fd,"%s",databuf)==-1){
 				perror("file error");
+				close(sd);			
 				exit(1);
 			}
-			close(sd);
+				
 		}
 		bzero(databuf , 1024);
 	return 0;
 
 	}
 }
+
+
+
 
 
 
