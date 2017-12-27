@@ -8,18 +8,35 @@
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+
 
  #define PORT 6000
 
 struct sockaddr_in localSock;
 struct ip_mreq group;
-int sd;
+int sd,i = 100000;
 int datalen,read = 0;
 int optval = 1;
 char databuf[1024];
+FILE *fd;
+const char* str;
+
 
 
 int main(int argc, char *argv[]){
+	/*---- Open data logging txt file : ----*/
+     fd = fopen("myFile.txt", "w");
+   	 if(fd ==NULL){
+		 perror("file open error");
+		 exit(1);
+   	 }
+	 else
+		 printf("file open succeed");
+
+
+
 	/* Create a datagram socket on which to receive. */
 	sd = socket(AF_INET, SOCK_DGRAM, 0);
 	if(sd < 0){
@@ -63,7 +80,7 @@ int main(int argc, char *argv[]){
 	/* called for each local interface over which the multicast */
 	/* datagrams are to be received. */
 	group.imr_multiaddr.s_addr = inet_addr("239.0.0.1");
-	group.imr_interface.s_addr = inet_addr("192.2.1.1");
+	group.imr_interface.s_addr = inet_addr("192.2.2.1");   //ip of receiver
 	if(setsockopt(sd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&group, sizeof(group)) < 0)
 	{
 		perror("Adding multicast group error");
@@ -72,27 +89,36 @@ int main(int argc, char *argv[]){
 	}
 	else
 		printf("Adding multicast group...OK.\n");
+	read = 1;
+	while(i){
 
-
-	/* Read from the socket. */
-	datalen = sizeof(databuf);
-	read = recvfrom(sd, databuf, datalen,0,INADDR_ANY,sizeof(INADDR_ANY));
-	printf("after read\n");
-	if(read < 0)
-	{
-		perror("Reading datagram message error");
-		close(sd);
-		exit(1);
-	}
-	else
-	{
-		printf("Reading datagram message...OK.\n");
-		printf("The message from multicast server is: \"%s\"\n", databuf);
-		close(sd);
-	}
+		/* Read from the socket. */
+		datalen = sizeof(databuf);
+		i--;
+		read = recvfrom(sd, databuf, datalen,0,0,0);//instead of the two 0's at the end shuld be INADDR_ANY and the second one his size
+		if(read < 0)
+		{
+			perror("Reading datagram message error");
+			close(sd);
+			//exit(1);
+		}
+		else
+		{
+			printf("%s",databuf);
+			if(fprintf(fd,"%s",databuf)==-1){
+				perror("file error");
+				close(sd);			
+				exit(1);
+			}
+				
+		}
+		bzero(databuf , 1024);
 	return 0;
 
+	}
 }
+
+
 
 
 

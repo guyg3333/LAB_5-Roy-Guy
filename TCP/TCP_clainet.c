@@ -103,6 +103,6 @@ int main(int argc, char *argv[]){
   fclose(fd);
 
   printf("end session \n");
-
+//guy
   return 0;
 }
