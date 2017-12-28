@@ -8,7 +8,7 @@
 #define FRAME_SIZE 1024
 
 int main(int argc, char *argv[]){
-  int welcomeSocket, newSocket,Num_of_Frame,i,port_num;
+  int welcomeSocket, newSocket,Num_of_Frame,i,j,port_num;
   char buffer[FRAME_SIZE];
   struct sockaddr_in serverAddr;
   struct sockaddr_storage serverStorage;
@@ -79,16 +79,16 @@ int main(int argc, char *argv[]){
 	  	 {
 	  	 buffer[i] = fgetc(fd);
 	  	 if( feof(fd) ) {
-	  		Num_of_Frame = 0;
+	  		Num_of_Frame = 1;
 	  	          break ;
 	  	       }
 	  	 }
 
-	  for(i=0;i<FRAME_SIZE;i++)
-	  	DEBUG("%c",buffer[i]);
+	  for(j=0;j<FRAME_SIZE;j++)
+	  	DEBUG("%c",buffer[j]);
 
   //strcpy(buffer,"Hello World\n");
-  send(newSocket,buffer,1024,0);
+  send(newSocket,buffer,i,0);
   DEBUG("send \n");
   Num_of_Frame--;
   }
