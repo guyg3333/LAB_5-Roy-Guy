@@ -16,6 +16,9 @@
 #define ASK_SONG 	1
 #define UP_SONG 	2 
 
+#define WELCOME 0
+
+
 #define COM_TYPE	0
 #define STAEION_NUM	1
 #define SONG_SIZE	1
@@ -30,9 +33,13 @@
 #define  M_GROUP		3
 #define  PORT_NUM		7
 
+#define ANNOUNCE 1
+#define NAME_SIZE 1
+
+
 /* -----------struct----------- */
 
-union typedef group_16{
+typedef union _group_16{
 	
 	char u8[2];
 	short u16;
@@ -40,7 +47,7 @@ union typedef group_16{
 } group_16;
 
 
-nion typedef group_32{
+typedef union _group_32{
 	
 	char u8[4];
 	int u32;
@@ -51,15 +58,18 @@ nion typedef group_32{
 
 static int num_of_client;
 static group_32 mulyicastGroup;
-static group_16 port_num
+static group_16 port_num;
 
-void return_Wellcom(char buffer*);
-int return_Song(chr buffer* , short station);
+void make_Wellcom_p(char *buffer);
+int make_Song_p(char *buffer, short station);
+char getSongName(char *name,short station);
+	short getnumStations();
+
 
 
 int main( ){
 	
-  int welcomeSocket, newSocket,Num_of_Frame,i,j,;
+  int welcomeSocket, newSocket,Num_of_Frame,i,j;
   char buffer[FRAME_SIZE];
   struct sockaddr_in serverAddr;
   struct sockaddr_storage serverStorage;
@@ -108,20 +118,38 @@ int main( ){
   
   Apllication_function(newSocket);
    
-  
+  return 0;
 }
   
   
   
-  //set buffer for 
-  void return_Wellcom(char buffer*){
-  group_16 num_16;
+short getnumStations(){
 
-	  buffer[REPLY_TYPE] = WELCOME //0
+	return 6;
+}
+
+
+char getSongName(char *name,short station){
+int i;
+	char buffer[20] = "ROY";
+
+	for(i=0;i<3;i++)
+		*name++ = buffer[i];
+
+return 3;
+}
+
+
+  //set buffer for 
+  void make_Wellcom_p(char *buffer){
+  group_16 num_16;
+  int i;
+
+	  buffer[REPLY_TYPE] = WELCOME; //0
 	  
 	  num_16.u16 = getnumStations();
 	  
-	  for(i = 0 ;i<2;i++)
+	  for(i = 0;i<2;i++)
 	  buffer[i+NAME_STATION] = num_16.u8[i]; // 1
   
 	  for(i = 0 ;i<4;i++)
@@ -133,10 +161,12 @@ int main( ){
   } 
   
   
-  int return_Song(chr buffer* , short station)
+
+  int make_Song_p(char *buffer, short station)
   {
 	  char song_name_size;
 	  char name[50];
+	  int i;
 	  
 	  
 	  buffer[REPLY_TYPE] = ANNOUNCE; //1
@@ -163,6 +193,8 @@ int main( ){
   char song_name_size;
   group_16 num_16;
   group_32 song_size;
+  int i,rcv_f;
+
   while(1)
   
   {
@@ -180,7 +212,7 @@ int main( ){
 		  
 		  case HELLO:										  //Hello
 		  
-			   return_Wellcom(buffer);
+			   make_Wellcom_p(buffer);
 			   i = send(newSocket,buffer,WELCOME_SIZE,0);
 			   if(i == -1)
 			  {
@@ -196,7 +228,7 @@ int main( ){
 			  for(i = 0 ;i<2;i++)
 			  num_16.u8[i] = buffer[i+STAEION_NUM];
 		  
-			  i = return_Song(buffer,num_16.u16);
+			  i = make_Song_p(buffer,num_16.u16);
 			  i= send(newSocket,buffer,i,0);
 		      if(i == -1)
 			  {
@@ -217,11 +249,16 @@ int main( ){
 			  song_name_size = buffer[i+SONG_NAME_SIZE];
 			  
 			  for(i = 0 ;i<song_name_size;i++)
-			  song_name[i] = buffer[i + SONG_NAME]
+			  song_name[i] = buffer[i + SONG_NAME];
 		  
 			 // Upload_song(song_size.u32,song_name_size,song_name);	
 		  
-		  break;
+			  break;
+
+			default:
+
+				printf("unone massege type  closing TCP connection");
+				close(newSocket);
 		  
 	  }//switch
 	}//while(1);
@@ -229,27 +266,6 @@ int main( ){
   
   
   
-  /*---- Send message to the socket of the incoming connection ----*/
-  while(Num_of_Frame)
-  {
-	  for(i=0;i<FRAME_SIZE;i++)
-	  	 {
-	  	 buffer[i] = fgetc(fd);
-	  	 if( feof(fd) ) {
-	  		Num_of_Frame = 1;
-	  	          break ;
-	  	       }
-	  	 }
 
-	  for(j=0;j<FRAME_SIZE;j++)
-	  	DEBUG("%c",buffer[j]);
 
-  //strcpy(buffer,"Hello World\n");
-  send(newSocket,buffer,i,0);
-  DEBUG("send \n");
-  Num_of_Frame--;
-  }
-  close(newSocket);
 
-  return 0;
-}
