@@ -111,53 +111,62 @@ int main( ){
   {
 	  
   
-  
   rcv_f = recv(clientSocket, buffer, 200, 0);
   if(rcv_f == -1)
   {
 	  perror("receive error");
 	  break;
   }
-  
-  switch(buffer[COM_TYPE])
-  {
 	  
-	  case HELLO:										  //Hello
-	  
-		   return_Wellcom(buffer);
-		   send(newSocket,buffer,WELCOME_SIZE,0);
-		   
-	  break;
-	  
-	  
-	  case ASK_SONG:	  								  //Ask_song
+	  switch(buffer[COM_TYPE])
+	  {
 		  
-		  for(i = 0 ;i<2;i++)
-		  num_16.u8[i] = buffer[i+STAEION_NUM];
-	  
-		  i = return_Song(buffer,num_16.u16);
-		  send(newSocket,buffer,i,0);
+		  case HELLO:										  //Hello
 		  
-	  
-	  break;
-	  
-	  
-	  case UP_SONG:                                       //Upsong 
+			   return_Wellcom(buffer);
+			   i = send(newSocket,buffer,WELCOME_SIZE,0);
+			   if(i == -1)
+			  {
+				  perror("receive error");
+				  break;
+			  }
+			  
+		  break;
 		  
-		  for(i = 0 ;i<4;i++)
-		  song_size.u8[i] = buffer[i+SONG_SIZE];
-	  
-		  for(i = 0 ;i<1;i++)
-		  song_name_size = buffer[i+SONG_NAME_SIZE];
 		  
-		  for(i = 0 ;i<song_name_size;i++)
-		  song_name[i] = buffer[i + SONG_NAME]
-	  
-		 // Upload_song(song_size.u32,song_name_size,song_name);	
-	  
-	  break;
-	  
-  }
+		  case ASK_SONG:	  								  //Ask_song
+			  
+			  for(i = 0 ;i<2;i++)
+			  num_16.u8[i] = buffer[i+STAEION_NUM];
+		  
+			  i = return_Song(buffer,num_16.u16);
+			  i= send(newSocket,buffer,i,0);
+		      if(i == -1)
+			  {
+				  perror("receive error");
+				  break;
+			  }
+			  
+		  
+		  break;
+		  
+		  
+		  case UP_SONG:                                       //Upsong 
+			  
+			  for(i = 0 ;i<4;i++)
+			  song_size.u8[i] = buffer[i+SONG_SIZE];
+		  
+			  for(i = 0 ;i<1;i++)
+			  song_name_size = buffer[i+SONG_NAME_SIZE];
+			  
+			  for(i = 0 ;i<song_name_size;i++)
+			  song_name[i] = buffer[i + SONG_NAME]
+		  
+			 // Upload_song(song_size.u32,song_name_size,song_name);	
+		  
+		  break;
+		  
+	  }//switch
   
   }//while(1);
   
