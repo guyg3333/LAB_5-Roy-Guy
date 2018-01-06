@@ -10,26 +10,53 @@
 #define IP_ADDR "192.2.2.1"
 #define DEBUG printf
 
-int main(int argc, char *argv[]){
-  int clientSocket,i,port_num,rcv_f;
+
+
+/* -----------struct----------- */
+
+typedef union _group_16{
+
+	char u8[2];
+	short u16;
+
+} group_16;
+
+
+typedef union _group_32{
+
+	char u8[4];
+	int u32;
+
+} group_32;
+
+
+
+
+int main(){
+  int clientSocket,i,port_num,rcv_f,stram,sret;
   int Num_of_Frame;
   char buffer[1024];
   const char* str;
   struct sockaddr_in serverAddr;
   socklen_t addr_size;
   FILE *fd;
+  group_16 num_of_station, m_port_num;
+  group_32 multicast_addr;
 
 
-  //
-    if (argc != 4) {
-            printf("./TCP_clainet <IP address> <Port> <Num of Frame >\n");
-            exit(1);
-        }
+  fd_set readfds;
+  struct timeval timeout;
 
-    port_num = atoi(argv[2]);
-    Num_of_Frame = atoi(argv[3]);
 
-    printf("%s  %d %d \n",argv[1],port_num,Num_of_Frame);
+  START:
+
+
+
+    //-----DEBUG
+
+    port_num = 2500;
+
+    //
 
 
 
@@ -42,7 +69,7 @@ int main(int argc, char *argv[]){
    	    	 exit(1);
    	 }
 
-
+   	serverAddr.sin_addr.s_addr = inet_addr("10.0.2.15");
 
 
   //
@@ -57,7 +84,7 @@ int main(int argc, char *argv[]){
   /* Set port number, using htons function to use proper byte order */
   serverAddr.sin_port = htons(port_num);
   /* Set IP address to localhost */
-  serverAddr.sin_addr.s_addr = inet_addr(argv[1]);
+  //serverAddr.sin_addr.s_addr = inet_addr(argv[1]);
   /* Set all bits of the padding field to 0 */
   memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
 
@@ -68,39 +95,67 @@ int main(int argc, char *argv[]){
      exit(1);
   }
 
-  rcv_f = 1;
-  while(Num_of_Frame && rcv_f)
-  {
+  printf("connect to server");
 
-  /*---- Read the message from the server into the buffer ----*/
-  rcv_f = recv(clientSocket, buffer, 1024, 0);
-  if(rcv_f == -1)
+
+
+  //-----init
+  memset((void*) buffer,0,20);
+  i = send(clientSocket,buffer,1,0);
+   if(i == -1)
   {
 	  perror("receive error");
-	  break;
+	  goto START;
+
   }
 
+  printf("send hello");
 
-  /*---- Print the received message ----*/
+  FD_ZERO(&readfds);
+  FD_SET(clientSocket,&readfds);
 
-  printf("Data received: %s",buffer);
+  timeout.tv_sec = 5;
+  timeout.tv_usec = 0;
 
-  if(fprintf(fd,"%s",buffer)==-1)
-  	  {
-  		  perror("file");
-  		      exit(1);
-  	  }
-  bzero(buffer , 1024);
+  sret = select(3,&readfds, NULL,NULL,&timeout);
 
-  /*---- Clear buffer ----*/
+  if(sret == 0 ){
+  printf("timeout");
+  goto START;
 
-  //for(i=0;i<1024;i++)
+  }//if
 
-	//  buffer[i] = 0;
-  Num_of_Frame = Num_of_Frame-1;
-  }
+  else
+  {
+	 rcv_f = recv(clientSocket, buffer, 200, 0);
+	 if(rcv_f == -1)
+
+	 	 {
+	 	   perror("receive error");
+	 	   goto START;
+	 	 }
+
+
+	 num_of_station.u8[0] = buffer[1];
+	 num_of_station.u8[1] = buffer[2];
+
+	 multicast_addr.u8[0] = buffer[3];
+	 multicast_addr.u8[1] = buffer[4];
+	 multicast_addr.u8[2] = buffer[5];
+	 multicast_addr.u8[3] = buffer[6];
+
+	 m_port_num.u8[0] = buffer[7];
+	 m_port_num.u8[1] = buffer[8];
+
+	 printf("num_of_station: %d \n",num_of_station.u16);
+	 printf("multicast_addr: %d.%d.%d.%d \n",multicast_addr.u8[0],multicast_addr.u8[1],multicast_addr.u8[2],multicast_addr.u8[3]);
+	 printf("m_port_num: %d \n",m_port_num.u16);
+
+  }//else
+
+
+
   close(clientSocket);
-  fclose(fd);
 
   printf("end session \n");
 //guy
