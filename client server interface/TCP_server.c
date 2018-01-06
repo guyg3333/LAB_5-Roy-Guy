@@ -100,6 +100,63 @@ int main( ){
   
 /*-----Enter Apllication ----*/  
   
+ 
+  
+  
+  
+  
+  
+  Apllication_function(newSocket);
+   
+  
+}
+  
+  
+  
+  //set buffer for 
+  void return_Wellcom(char buffer*){
+  group_16 num_16;
+
+	  buffer[REPLY_TYPE] = WELCOME //0
+	  
+	  num_16.u16 = getnumStations();
+	  
+	  for(i = 0 ;i<2;i++)
+	  buffer[i+NAME_STATION] = num_16.u8[i]; // 1
+  
+	  for(i = 0 ;i<4;i++)
+	  buffer[i+M_GROUP] = mulyicastGroup.u8[i]; //3
+	  
+	  for(i = 0 ;i<2;i++) //7
+	  buffer[i+PORT_NUM] = port_num.u8[i];
+	    
+  } 
+  
+  
+  int return_Song(chr buffer* , short station)
+  {
+	  char song_name_size;
+	  char name[50];
+	  
+	  
+	  buffer[REPLY_TYPE] = ANNOUNCE; //1
+	  song_name_size  = getSongName(name,station);
+	  
+	  buffer[NAME_SIZE] = song_name_size; //1
+	  
+	  for(i = 0 ;i<song_name_size;i++) 
+	  buffer[i+SONG_NAME_SIZE] = name[i];
+	  
+	  return song_name_size + 2;
+	   
+  }
+  
+  
+  
+  
+  
+  
+  Apllication_function(int newSocket){
   
   char buffer[200];
   char song_name[200];
@@ -111,7 +168,7 @@ int main( ){
   {
 	  
   
-  rcv_f = recv(clientSocket, buffer, 200, 0);
+  rcv_f = recv(newSocket, buffer, 200, 0);
   if(rcv_f == -1)
   {
 	  perror("receive error");
@@ -167,56 +224,8 @@ int main( ){
 		  break;
 		  
 	  }//switch
-  
-  }//while(1);
-  
-  
-  
-}
-  
-  
-  
-  //set buffer for 
-  void return_Wellcom(char buffer*){
-  group_16 num_16;
-
-	  buffer[REPLY_TYPE] = WELCOME //0
-	  
-	  num_16.u16 = getnumStations();
-	  
-	  for(i = 0 ;i<2;i++)
-	  buffer[i+NAME_STATION] = num_16.u8[i]; // 1
-  
-	  for(i = 0 ;i<4;i++)
-	  buffer[i+M_GROUP] = mulyicastGroup.u8[i]; //3
-	  
-	  for(i = 0 ;i<2;i++) //7
-	  buffer[i+PORT_NUM] = port_num.u8[i];
-	    
-  } 
-  
-  
-  int return_Song(chr buffer* , short station)
-  {
-	  char song_name_size;
-	  char name[50];
-	  
-	  
-	  buffer[REPLY_TYPE] = ANNOUNCE; //1
-	  song_name_size  = getSongName(name,station);
-	  
-	  buffer[NAME_SIZE] = song_name_size; //1
-	  
-	  for(i = 0 ;i<song_name_size;i++) 
-	  buffer[i+SONG_NAME_SIZE] = name[i];
-	  
-	  return song_name_size + 2;
-	   
-  }
-  
-  
-  
-  
+	}//while(1);
+  }//Apllication_function
   
   
   
