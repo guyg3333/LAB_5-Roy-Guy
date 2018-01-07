@@ -126,18 +126,33 @@ int main( ){
   newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
   add_souket(newSocket);	 // add the new souket  	
 	
+	
+//while1	
+while(1){
+	
+FD_ZERO(&readfds);	
+for(i=0;i < souket_struct.num_of_souket;i++)       //init readfds
+FD_SET(souket_struct.souket_array[i],&readfds);	
+	
+if(select(souket_struct.num_of_souket,&readfds, NULL,NULL,NULL)<0){     // Wait for Welcome massage
 
+   perror("select");
+   goto CLOSE;
+  }
+
+	
+	
+if(FD_ISSET(welcomeSocket,&readfds)){   // if new welcomeSocket
+  newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
+  add_souket(newSocket);  // add the new souket  
+}
+	
+	
+for(i=1;i < souket_struct.num_of_souket;i++)      		 //find if client jump 
+   if(FD_ISSET(souket_struct.souket_array[i],&readfds))          
+     Apllication_function(souket_struct.souket_array[i]);
   
-  
-/*-----Enter Apllication ----*/  
-  
- 
-  
-  
-  
-  
-  
-  Apllication_function(newSocket);
+}//while
    
   return 0;
 }
