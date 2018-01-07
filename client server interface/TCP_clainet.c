@@ -120,7 +120,7 @@ int main(){
 
   sret = select(3,&readfds, NULL,NULL,&timeout);     // Wait for Welcome massage
 
-  if(sret < 0 ){
+  if(sret == 0 ){
   printf("timeout");
   goto CLOSE;
   }//if
@@ -168,9 +168,9 @@ int main(){
 
    stram = 0;
 
-   //FD_ZERO(&readfds);
+   FD_ZERO(&readfds);
    FD_SET(stram,&readfds);
-
+   FD_SET(clientSocket,&readfds);
 
 
    fflush(stdout);
