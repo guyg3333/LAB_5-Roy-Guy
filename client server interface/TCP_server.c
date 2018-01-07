@@ -237,11 +237,14 @@ return 3;
 	  
   
   rcv_f = recv(newSocket, buffer, 200, 0);
-  if(rcv_f == -1)
-  {
-	  perror("receive error");
-	  break;
-  }
+	  switch(rcv_f){
+		  case -1: perror("receive error");
+	          case  0: printf("close \n");
+			   rmv_souket(newSocket);
+		           return;
+		  default:
+	  }
+ 
 	  
 	  switch(buffer[COM_TYPE])
 	  {
