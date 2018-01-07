@@ -16,7 +16,7 @@
 
 typedef union _group_16{
 
-	char u8[2];
+	unsigned char u8[2];
 	short u16;
 
 } group_16;
@@ -24,7 +24,7 @@ typedef union _group_16{
 
 typedef union _group_32{
 
-	char u8[4];
+	unsigned char u8[4];
 	int u32;
 
 } group_32;
@@ -109,7 +109,7 @@ int main(){
 
   }
 
-  printf("send hello \n");
+  printf("send hello \n");                  //Sand hello
 
   FD_ZERO(&readfds);
   FD_SET(clientSocket,&readfds);
@@ -117,9 +117,9 @@ int main(){
   timeout.tv_sec = 5;
   timeout.tv_usec = 0;
 
-  sret = select(3,&readfds, NULL,NULL,&timeout);
+  sret = select(3,&readfds, NULL,NULL,&timeout);     // Wait for Welcome massage
 
-  if(sret == 0 ){
+  if(sret < 0 ){
   printf("timeout");
   goto CLOSE;
 
@@ -152,6 +152,42 @@ int main(){
 	 printf("m_port_num: %d \n",m_port_num.u16);
 
   }//else
+
+
+
+
+  // <---------------- Start --  assign to stream service  -------------> //
+
+
+
+  // <----------------  End  --  assign to stream service  -------------> //
+
+
+
+  stram = 0;
+
+   FD_ZERO(&readfds);
+   FD_SET(stram,&readfds);
+
+   timeout.tv_sec = 5;
+   timeout.tv_usec = 0;
+
+   printf("enter here\n");
+   sret = select(3,&readfds, NULL,NULL,NULL);     // Wait for Welcome massage
+
+   memset((void*) buffer,0,21);
+   read(stram,(void*)buffer,20);
+
+
+   printf("%s\n",buffer);
+
+
+
+
+
+
+
+
 
   CLOSE:
 
