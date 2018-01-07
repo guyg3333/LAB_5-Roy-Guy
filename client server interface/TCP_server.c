@@ -54,13 +54,13 @@ typedef union _group_32{
 	
 } group_32;
 
-typdef struct dynamic_souket{
+typedef struct dynamic_souket{
 
 	int num_of_souket;
 	int size;
 	int *souket_array;
 	
-}dynamic_souket
+}dynamic_souket;
 
 
 
@@ -154,6 +154,14 @@ for(i=1;i < souket_struct.num_of_souket;i++)      		 //find if client jump
   
 }//while
    
+CLOSE:
+
+for(i=0;i < souket_struct.num_of_souket;i++)       //init readfds
+close(souket_struct.souket_array[i]);
+
+free(souket_struct.souket_array);
+
+
   return 0;
 }
   
@@ -239,10 +247,10 @@ return 3;
   rcv_f = recv(newSocket, buffer, 200, 0);
 	  switch(rcv_f){
 		  case -1: perror("receive error");
-	          case  0: printf("close \n");
+	      case  0: printf("close \n");
 			   rmv_souket(newSocket);
 		           return;
-		  default:
+
 	  }
  
 	  
@@ -303,6 +311,9 @@ return 3;
 	}//while(1);
   }//Apllication_function
  
+
+
+
 void init_souket_array(){
 
 souket_struct.num_of_souket = 0;
@@ -312,24 +323,16 @@ souket_struct.souket_array =(int *)malloc(souket_struct.size*sizeof(int));
 }
 
 void add_souket(int newSocket){
-int temp*;
+int *temp;
 int i,empty_space;
 	
 	if(souket_struct.num_of_souket+1 >= souket_struct.size ) // if there is need to make some more rome in the array
 	{
-		temp  =(int *)malloc((souket_struct.size+5)*sizeof(int)); // malloc new space
-		
-		for(i=0;i<souket_struct.num_of_souket;i++)   //do hard copy
-			*temp++ = souket_struct.souket_array[i];
-		
-		//free old buffer 
-		free(souket_struct.souket_array);
-		//point to new 
-		souket_struct.souket_array = temp;
+		souket_struct.souket_array  =(int *)realloc(souket_struct.souket_array,(souket_struct.size+5)*sizeof(int)); // malloc new space
 		souket_struct.size = souket_struct.size+5;
 	}
 	
-	//find empty space
+  //find empty space
 	
 	for(i=0;i<souket_struct.size ;i++)
 		if(souket_struct.souket_array[i] == 0)
@@ -348,7 +351,7 @@ int i,empty_space;
   
 void rmv_souket(int newSocket){
 int i,j;	
-int temp*;	
+int *temp;
 	if(souket_struct.num_of_souket>0)
 	{
 		for(i=0;i<souket_struct.size ;i++) //find the souket to rmv
@@ -358,16 +361,16 @@ int temp*;
 			close(newSocket);
 			
 			for(j=i;j<souket_struct.size-1 ;j++) //rmv space in the array
-				souket_struct.souket_array[j] = souket_struct.souket_array[j+1]
+				souket_struct.souket_array[j] = souket_struct.souket_array[j+1];
 				
 			souket_struct.num_of_souket = souket_struct.num_of_souket-1;  
 			
 			//if the num of souket is less then the size-10 then shrink the size
 			if(souket_struct.num_of_souket < souket_struct.size-10)
-				temp  =(int *)malloc((souket_struct.size-5)*sizeof(int))
+				temp  =(int *)malloc((souket_struct.size-5)*sizeof(int));
 				
 				for(i=0;i<souket_struct.size-5 ;i++) //do hard copy to the new location
-					*temp++ = souket_struct.souket_array[i]
+					*temp++ = souket_struct.souket_array[i];
 					
 				free(souket_struct.souket_array); //free the old location
 				souket_struct.souket_array = temp; //point to the new location
