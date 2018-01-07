@@ -136,7 +136,7 @@ int main( ){
 		for(i=0;i < souket_struct.num_of_souket;i++)       //init readfds
 			FD_SET(souket_struct.souket_array[i],&readfds);
 
-		if(select(souket_struct.num_of_souket,&readfds, NULL,NULL,NULL)<0){     // Wait for Welcome massage
+		if(select(souket_struct.num_of_souket,&readfds, NULL,NULL,NULL)<0){     // if error
 
 			perror("select");
 			goto CLOSE;
@@ -158,6 +158,7 @@ int main( ){
 
 	CLOSE:
 
+	printf("close\n");
 	for(i=0;i < souket_struct.num_of_souket;i++)       //case of error
 		close(souket_struct.souket_array[i]);
 
@@ -207,7 +208,7 @@ void make_Wellcom_p(char *buffer){
 }
 
 
-
+//set buffer with ask song packet
 int make_Song_p(char *buffer, short station)
 {
 	char song_name_size;
@@ -231,7 +232,7 @@ int make_Song_p(char *buffer, short station)
 
 
 
-
+//sand the application packet regard to the client massage
 Apllication_function(int newSocket){
 
 	char buffer[200];
@@ -241,9 +242,6 @@ Apllication_function(int newSocket){
 	group_32 song_size;
 	int i,rcv_f;
 
-	while(1)
-
-	{
 
 
 		rcv_f = recv(newSocket, buffer, 200, 0);
@@ -255,14 +253,10 @@ Apllication_function(int newSocket){
 		case  0: printf("finACK \n");
 				 rmv_souket(newSocket);
 				 return;
+		}//switch
 
 
-
-		}
-
-
-		switch(buffer[COM_TYPE])
-		{
+		switch(buffer[COM_TYPE]){
 
 		case HELLO:										  //Hello
 
@@ -289,9 +283,7 @@ Apllication_function(int newSocket){
 				perror("receive error");
 				break;
 			}
-
-
-			break;
+         	break;
 
 
 		case UP_SONG:                                       //Upsong
@@ -315,7 +307,6 @@ Apllication_function(int newSocket){
 			close(newSocket);
 
 		}//switch
-	}//while(1);
 }//Apllication_function
 
 
