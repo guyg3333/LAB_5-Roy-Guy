@@ -132,11 +132,15 @@ int main( ){
 	//while1
 	while(1){
 
+		
 		FD_ZERO(&readfds);
-		for(i=0;i < souket_struct.num_of_souket;i++)       //init readfds
-			FD_SET(souket_struct.souket_array[i],&readfds);
 
-		if(select(souket_struct.num_of_souket,&readfds, NULL,NULL,NULL)<0){     // if error
+		for(i=0;i < souket_struct.num_of_souket;i++)    {   //init readfds
+			FD_SET(souket_struct.souket_array[i],&readfds);
+			}
+
+
+		if(select(souket_struct.num_of_souket+3,&readfds, NULL,NULL,NULL)<0){     // if error
 
 			perror("select");
 			goto CLOSE;
@@ -243,7 +247,8 @@ Apllication_function(int newSocket){
 	int i,rcv_f;
 
 
-
+		DEBUG("enter application\n");	
+			          
 		rcv_f = recv(newSocket, buffer, 200, 0);
 		switch(rcv_f){
 		case -1: perror("receive error");
@@ -258,8 +263,9 @@ Apllication_function(int newSocket){
 
 		switch(buffer[COM_TYPE]){
 
-		case HELLO:										  //Hello
-
+		case HELLO:	
+									  //Hello
+			DEBUG("HELLO\n");				          
 			make_Wellcom_p(buffer);
 			i = send(newSocket,buffer,WELCOME_SIZE,0);
 			if(i == -1)
@@ -333,15 +339,13 @@ void add_souket(int newSocket){
 
 	for(i=0;i<souket_struct.size ;i++)
 		if(souket_struct.souket_array[i] == 0)
-		{
-			empty_space = i;
 			break; 
-		}
 
 
 	souket_struct.num_of_souket = souket_struct.num_of_souket+1;       //incremant num of souket 
-	souket_struct.souket_array[empty_space] = newSocket;	           //place the new souket in the empty place
-	//FD_SET(newSocket,&readfds);				          
+	souket_struct.souket_array[i] = newSocket;	           //place the new souket in the empty place
+	//FD_SET(newSocket,&readfds);
+	DEBUG("num of souket %d \n",souket_struct.num_of_souket);				          			          
 
 }
 
@@ -374,6 +378,8 @@ void rmv_souket(int newSocket){
 			}//if
 	}//if	
 	else printf("no argument to remove\n");
+
+	DEBUG("num of souket %d \n",souket_struct.num_of_souket);				          			          
 }//rmv_souket
 
 
