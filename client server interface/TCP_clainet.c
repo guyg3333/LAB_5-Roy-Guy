@@ -110,17 +110,19 @@ int main(){
 
   }
 
+
+
   printf("send hello \n");                  		//Sand hello
 
   FD_ZERO(&readfds);
   FD_SET(clientSocket,&readfds);
 
-  timeout.tv_sec = 5;
+  timeout.tv_sec = 10;
   timeout.tv_usec = 0;
 
   sret = select(3,&readfds, NULL,NULL,&timeout);     // Wait for Welcome massage
 
-  if(sret == 0 ){
+  if(sret < 0 ){
   printf("timeout");
   goto CLOSE;
   }//if
