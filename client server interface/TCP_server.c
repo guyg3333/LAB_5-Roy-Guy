@@ -54,11 +54,24 @@ typedef union _group_32{
 	
 } group_32;
 
+typdef struct dynamic_souket{
+
+	int num_of_souket;
+	int size;
+	int *souket_array;
+	
+}dynamic_souket
+
+
+
+
 
 
 static int num_of_client;
 static group_32 mulyicastGroup;
 static group_16 port_num;
+static dynamic_souket souket_struct;
+static  fd_set readfds;
 
 void make_Wellcom_p(char *buffer);
 int make_Song_p(char *buffer, short station);
@@ -70,12 +83,17 @@ char getSongName(char *name,short station);
 int main( ){
 	
   int welcomeSocket, newSocket,Num_of_Frame,i,j;
+	
   char buffer[FRAME_SIZE];
   struct sockaddr_in serverAddr;
   struct sockaddr_storage serverStorage;
   socklen_t addr_size;
   FILE *fd;
-
+	
+ 
+  init_souket_array();   // init the souket_struct
+	
+  struct timeval timeout;
   DEBUG("Start \n");
 
   mulyicastGroup.u8[0] = 224;
@@ -87,31 +105,27 @@ int main( ){
   port_num.u16 = 2545;
     
   welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
+  add_souket(welcomeSocket);	 // add the welcome souket 
 
-  //atoi
+  
 
-  /*---- Configure settings of the server address struct ----*/
-  /* Address family = Internet */
+ 
   serverAddr.sin_family = AF_INET;
-  /* Set port number, using htons function to use proper byte order */
   serverAddr.sin_port = htons(PORT);
-  /* Set IP address to localhost */
   serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  /* Set all bits of the padding field to 0 */
   memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
 
-  /*---- Bind the address struct to the socket ----*/
   bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
 
-  /*---- Listen on the socket, with 5 max connection requests queued ----*/
   if(listen(welcomeSocket,5)==0)
     printf("Listening\n");
   else
     printf("Error\n");
 
-  /*---- Accept call creates a new socket for the incoming connection ----*/
   addr_size = sizeof serverStorage;
   newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
+  add_souket(newSocket);	 // add the new souket  	
+	
 
   
   
@@ -270,9 +284,78 @@ return 3;
 	  }//switch
 	}//while(1);
   }//Apllication_function
-  
-  
-  
+ 
+void init_souket_array(){
 
+souket_struct.num_of_souket = 0;
+souket_struct.size = 5;
+souket_struct.souket_array =(int *)malloc(souket_struct.size*sizeof(int));
+
+}
+
+void add_souket(int newSocket){
+int temp*;
+int i,empty_space;
+	
+	if(souket_struct.num_of_souket+1 >= souket_struct.size ) // if there is need to make some more rome in the array
+	{
+		temp  =(int *)malloc((souket_struct.size+5)*sizeof(int)); // malloc new space
+		
+		for(i=0;i<souket_struct.num_of_souket;i++)   //do hard copy
+			*temp++ = souket_struct.souket_array[i];
+		
+		//free old buffer 
+		free(souket_struct.souket_array);
+		//point to new 
+		souket_struct.souket_array = temp;
+		souket_struct.size = souket_struct.size+5;
+	}
+	
+	//find empty space
+	
+	for(i=0;i<souket_struct.size ;i++)
+		if(souket_struct.souket_array[i] == 0)
+		{
+			empty_space = i;
+			break; 
+		}
+	
+	
+	souket_struct.num_of_souket = souket_struct.num_of_souket+1;       //incremant num of souket 
+	souket_struct.souket_array[empty_space] = newSocket;	           //place the new souket in the empty place
+	//FD_SET(newSocket,&readfds);				          
+
+}
+  
+  
+void rmv_souket(int newSocket){
+int i,j;	
+int temp*;	
+	if(souket_struct.num_of_souket>0)
+	{
+		for(i=0;i<souket_struct.size ;i++) //find the souket to rmv
+		if(souket_struct.souket_array[i] == newSocket)
+		{
+			souket_struct.souket_array[i] = 0;
+			close(newSocket);
+			
+			for(j=i;j<souket_struct.size-1 ;j++) //rmv space in the array
+				souket_struct.souket_array[j] = souket_struct.souket_array[j+1]
+				
+			souket_struct.num_of_souket = souket_struct.num_of_souket-1;  
+			
+			//if the num of souket is less then the size-10 then shrink the size
+			if(souket_struct.num_of_souket < souket_struct.size-10)
+				temp  =(int *)malloc((souket_struct.size-5)*sizeof(int))
+				
+				for(i=0;i<souket_struct.size-5 ;i++) //do hard copy to the new location
+					*temp++ = souket_struct.souket_array[i]
+					
+				free(souket_struct.souket_array); //free the old location
+				souket_struct.souket_array = temp; //point to the new location
+			
+		}//if	
+	}//if	
+}//rmv_souket
 
 
