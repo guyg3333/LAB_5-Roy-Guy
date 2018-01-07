@@ -57,7 +57,7 @@ int main(){
     port_num = 2500;
 
     //
-
+    printf("start\n");
 
 
     //
@@ -69,7 +69,7 @@ int main(){
    	    	 exit(1);
    	 }
 
-   	serverAddr.sin_addr.s_addr = inet_addr("10.0.2.15");
+   	serverAddr.sin_addr.s_addr = inet_addr("192.168.1.2");
 
 
   //
@@ -95,7 +95,7 @@ int main(){
      exit(1);
   }
 
-  printf("connect to server");
+  printf("connect to server \n");
 
 
 
@@ -109,7 +109,7 @@ int main(){
 
   }
 
-  printf("send hello");
+  printf("send hello \n");
 
   FD_ZERO(&readfds);
   FD_SET(clientSocket,&readfds);
@@ -121,7 +121,7 @@ int main(){
 
   if(sret == 0 ){
   printf("timeout");
-  goto START;
+  goto CLOSE;
 
   }//if
 
@@ -153,9 +153,10 @@ int main(){
 
   }//else
 
-
+  CLOSE:
 
   close(clientSocket);
+
 
   printf("end session \n");
 //guy

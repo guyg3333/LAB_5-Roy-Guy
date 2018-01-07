@@ -29,7 +29,7 @@
 #define WELCOME_SIZE 9
 
 #define  REPLY_TYPE 	0
-#define  NAME_STATION	1
+#define  NUM_STATION	1
 #define  M_GROUP		3
 #define  PORT_NUM		7
 
@@ -78,6 +78,13 @@ int main( ){
 
   DEBUG("Start \n");
 
+  mulyicastGroup.u8[0] = 224;
+  mulyicastGroup.u8[1] = 1;
+  mulyicastGroup.u8[2] = 2;
+  mulyicastGroup.u8[3] = 3;
+
+
+  port_num.u16 = 2545;
     
   welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
 
@@ -150,7 +157,7 @@ return 3;
 	  num_16.u16 = getnumStations();
 	  
 	  for(i = 0;i<2;i++)
-	  buffer[i+NAME_STATION] = num_16.u8[i]; // 1
+	  buffer[i+NUM_STATION] = num_16.u8[i]; // 1
   
 	  for(i = 0 ;i<4;i++)
 	  buffer[i+M_GROUP] = mulyicastGroup.u8[i]; //3
