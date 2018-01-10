@@ -59,6 +59,7 @@ typedef struct dynamic_souket{
 	int num_of_souket;
 	int size;
 	int *souket_array;
+	int *file_pointer;
 
 }dynamic_souket;
 
@@ -293,6 +294,14 @@ Apllication_function(int newSocket){
 
 
 		case UP_SONG:                                       //Upsong
+				
+				
+				
+			//1. find if the client uplouading allready // cheak in the souket array flag 
+			//2. if the secound byte equal to zero do 2 3 else do 4
+			//3. open the file and add the buffer data to it and return
+			//4. close the file and sand ip massage to the other procces and clear the fd file from the array
+				
 
 			for(i = 0 ;i<4;i++)
 				song_size.u8[i] = buffer[i+SONG_SIZE];
@@ -303,9 +312,18 @@ Apllication_function(int newSocket){
 			for(i = 0 ;i<song_name_size;i++)
 				song_name[i] = buffer[i + SONG_NAME];
 
-			// Upload_song(song_size.u32,song_name_size,song_name);
+			// Upload_song(song_size.u32,song_name_size,song_name); 
 
 			break;
+				
+		                                       //Upsong
+				
+			
+		
+				
+			
+			
+
 
 		default:
 
