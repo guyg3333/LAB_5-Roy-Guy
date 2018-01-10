@@ -133,7 +133,7 @@ int main( ){
 	while(1){
 
 		
-		FD_ZERO(&readfds);
+		FD_ZERO(&readfds); //clear the readfds array
 
 		for(i=0;i < souket_struct.num_of_souket;i++)    {   //init readfds
 			FD_SET(souket_struct.souket_array[i],&readfds);
