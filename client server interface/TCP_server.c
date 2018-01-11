@@ -30,14 +30,14 @@
 
 #define  REPLY_TYPE 	0
 #define  NUM_STATION	1
-#define  M_GROUP		3
-#define  PORT_NUM		7
+#define  M_GROUP	3
+#define  PORT_NUM	7
 
-#define ANNOUNCE 1
-#define NAME_SIZE 1
+#define ANNOUNCE 	1
+#define NAME_SIZE 	1
 
 
-/* -----------struct----------- */
+/* -----------Union----------- */
 
 typedef union _group_16{
 
@@ -54,7 +54,22 @@ typedef union _group_32{
 
 } group_32;
 
-typedef struct dynamic_souket{
+/*-------------------------------*/
+
+
+
+/* handle the number of client in the server
+--------------------------------------
+in this program the server hold a static 
+varible name " stations "
+
+to use this struct use the fallowing function"
+
+	void init_souket_array();
+	void add_souket(int newSocket);
+	void rmv_souket(int newSocket);
+*/
+typedef struct dynamic_souket{  
 
 	int num_of_souket;
 	int size;
@@ -64,9 +79,20 @@ typedef struct dynamic_souket{
 
 
 
+
+/* handle the number of client uploading song
+---------------------------------------------
+
+to use this struct use the fallowing function:
+
+	void init_Linkls();
+	int add_next(int souket,char* name, int num_of_byte);
+	int remove_ls(int souket);
+	void LS_size();
+*/
 typedef struct linkls{
 
-	linkls* next;
+	struct linkls * next;
 	int souket;
 	FILE *fd  ;
 	int num_of_byte;
@@ -76,6 +102,13 @@ typedef struct linkls{
 
 
 
+/*handle the number of station and their song name
+---------------------------------------------------
+
+	void init_station_struct ()
+	void add_station(char * song_name , unsigned char name_size )
+	unsigned char getSongName(char* name,short station)
+*/
 typedef struct dynamic_station{
 
 	int num_of_station;
@@ -92,18 +125,20 @@ static int num_of_client;
 static group_32 mulyicastGroup;
 static group_16 port_num;
 static dynamic_souket souket_struct;
-static dynamic_station station_struct;
+static dynamic_station stations;
 static  fd_set readfds;
 static linkls Linkls;
 
 void make_Wellcom_p(char *buffer);
 int make_Song_p(char *buffer, short station);
-char getSongName(char *name,short station);
+unsigned char getSongName(char* name,short station);
 short getnumStations();
 void Apllication_function(int newSocket);
 void init_souket_array();
 void add_souket(int newSocket);
 void rmv_souket(int newSocket);
+linkls * find(int souket);
+
 
 
 
@@ -117,6 +152,8 @@ int main( ){
 
 
 	init_souket_array();   // init the souket_struct
+	init_Linkls();
+	init_station_struct();
 
 	//struct timeval timeout;
 	DEBUG("Start \n");
@@ -137,7 +174,8 @@ int main( ){
 
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(PORT);
-	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	//serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
 	memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
 
 	bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
@@ -152,18 +190,18 @@ int main( ){
 	add_souket(newSocket);	 // add the new souket
 
 
-	//while1
+	//main loop 
 	while(1){
 
-		
-		FD_ZERO(&readfds); //clear the readfds array
+		printf("Wait for client massage \n");
+		FD_ZERO(&readfds); 					//clear the readfds
 
-		for(i=0;i < souket_struct.num_of_souket;i++)    {   //init readfds
-			FD_SET(souket_struct.souket_array[i],&readfds);
+		for(i=0;i < souket_struct.num_of_souket;i++)    {   	//init readfds
+			FD_SET(souket_struct.souket_array[i],&readfds); 
 			}
 
 
-		if(select(souket_struct.num_of_souket+3,&readfds, NULL,NULL,NULL)<0){     // if error
+		if(select(200,&readfds, NULL,NULL,NULL)<0){     	// wait for select signal
 
 			perror("select");
 			goto CLOSE;
@@ -171,15 +209,15 @@ int main( ){
 
 
 
-		if(FD_ISSET(welcomeSocket,&readfds)){   // if new welcomeSocket
+		if(FD_ISSET(welcomeSocket,&readfds)){   		// check if new welcomeSocket
 			newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
-			add_souket(newSocket);  // add the new souket
+			add_souket(newSocket);  			// add the new souket
 		}
 
 
-		for(i=1;i < souket_struct.num_of_souket;i++)      		 //find if client jump
+		for(i=1;i < souket_struct.num_of_souket;i++)      		 //check if new client message
 			if(FD_ISSET(souket_struct.souket_array[i],&readfds))
-				Apllication_function(souket_struct.souket_array[i]);
+				Apllication_function(souket_struct.souket_array[i]); // answer to client message  
 
 	}//while
 
@@ -202,7 +240,7 @@ short getnumStations(){
 	return 6;
 }
 
-
+/*
 char getSongName(char *name,short station){
 	int i;
 	char buffer[20] = "ROY";
@@ -212,7 +250,7 @@ char getSongName(char *name,short station){
 
 	return 3;
 }
-
+*/
 
 //set buffer for
 void make_Wellcom_p(char *buffer){
@@ -268,7 +306,7 @@ Apllication_function(int newSocket){
 	group_16 num_16;
 	group_32 song_size;
 	int i,rcv_f,num;
-	linkls souket;
+	linkls * souket;
 
 
 		DEBUG("enter application\n");	
@@ -277,10 +315,12 @@ Apllication_function(int newSocket){
 		switch(rcv_f){
 		case -1: perror("receive error");
 				  rmv_souket(newSocket);
+
 				  return;
 
 		case  0: printf("finACK \n");
 				 rmv_souket(newSocket);
+
 				 return;
 		}//switch
 
@@ -303,6 +343,9 @@ Apllication_function(int newSocket){
 
 		case ASK_SONG:	  								  //Ask_song
 
+
+
+
 			for(i = 0 ;i<2;i++)
 				num_16.u8[i] = buffer[i+STAEION_NUM];
 
@@ -318,7 +361,7 @@ Apllication_function(int newSocket){
 
 		case UP_SONG:                                       //Upsong
 				
-				
+			DEBUG("UP_SONG\n");
 				
 			//1. find if the client uplouading allready // cheak in the souket array flag 
 			//2. if the secound byte equal to zero do 2 3 else do 4
@@ -326,9 +369,10 @@ Apllication_function(int newSocket){
 			//4. close the file and sand ip massage to the other procces and clear the fd file from the array
 
 			souket = find(newSocket);
-
+			DEBUG("find\n");
 			if(souket == NULL) // case this is new ask
 			{
+				DEBUG("souket == NULL\n");
 				for(i = 0 ;i<4;i++)
 					song_size.u8[i] = buffer[i+SONG_SIZE];
 
@@ -338,12 +382,14 @@ Apllication_function(int newSocket){
 				for(i = 0 ;i<song_name_size;i++)
 					song_name[i] = buffer[i + SONG_NAME];
 
-				premit = 0; //init premiut
+				premit = 1; //init premiut
+				if(add_next(newSocket,song_name,song_size.u32) == -1) // case it secssed add the new
+					{
+					premit = 0;
+					perror("add_next :");
+					}
 
-				if(add_next(newSocket,song_name,song_size.u32)) // case it secssed
-					premit = 1;
-
-
+				DEBUG("add_next\n");
 				buffer[0] = PREMIT_SONG; //2
 				buffer[1] = premit;
 				send(newSocket,buffer,2,0);
@@ -359,22 +405,22 @@ Apllication_function(int newSocket){
 			else {
 
 
-				if(souket.num_of_byte < 1024)
+				if(souket->num_of_byte < 1024)
 				{
-					num = souket.num_of_byte;
-					souket.num_of_byte = 0;
+					num = souket->num_of_byte;
+					souket->num_of_byte = 0;
 				}
 				else
 				{
 					num = 1024;
-					souket.num_of_byte -= 1024;
+					souket->num_of_byte -= 1024;
 				}
 
 					for(int i = 0;i< num ; i++)
-						fputc(buffer[i+1], souket.fd);
+						fputc(buffer[i+1], souket->fd);
 
 
-				if(souket.num_of_byte == 0)
+				if(souket->num_of_byte == 0)
 				{
 					//clos procedure
 				}
@@ -399,12 +445,25 @@ Apllication_function(int newSocket){
 		default:
 
 			printf("unknown massage type  closing TCP connection");
-			close(newSocket);
+			rmv_souket(newSocket);
 
 		}//switch
 }//Apllication_function
 
 
+
+
+/* handle the number of client in the server
+--------------------------------------
+in this program the server hold a static 
+varible name " stations "
+
+to use this struct use the fallowing function"
+
+	void init_souket_array();
+	void add_souket(int newSocket);
+	void rmv_souket(int newSocket);
+*/
 
 
 void init_souket_array(){
@@ -414,6 +473,7 @@ void init_souket_array(){
 	souket_struct.souket_array =(int *)calloc(souket_struct.size,sizeof(int));
 
 }
+
 
 void add_souket(int newSocket){
 	int i,empty_space;
@@ -439,9 +499,12 @@ void add_souket(int newSocket){
 }
 
 
+
 void rmv_souket(int newSocket){
 	int i;
 	int *temp;
+
+	remove_ls(newSocket);  // cheak if there is a file
 	if(souket_struct.num_of_souket>0)
 	{
 		for(i=0;i<souket_struct.size ;i++) //find the souket to rmv
@@ -475,6 +538,10 @@ void rmv_souket(int newSocket){
 
 
 
+
+
+
+
 void init_station_struct (){
 
 stations.size = 5;
@@ -482,6 +549,10 @@ stations.num_of_station = 0;
 stations.song_name =(char **)calloc(stations.size,sizeof(char*));
 
 }//init_station
+
+
+
+
 
 //thi methode get name of song and reurn the station number
 void add_station(char * song_name , unsigned char name_size )
@@ -502,8 +573,6 @@ stations.num_of_station += 1;
 
 }//add_station 
 
- 
-
 
 
 unsigned char getSongName(char* name,short station){
@@ -521,25 +590,25 @@ while(stations.song_name[stations.num_of_station][i] != '\0' )
 
 
 
-/*
-typedef struct fd_up_linkls{
 
-	char* next;
-	int souket;
-	int fd	  ;
 
-}dynamic_souket;
 
-//to do
-//init
-//add
-//remove
-//find
+
+
+/* handle the number of client uploading song
+---------------------------------------------
+
+to use this struct use the fallowing function:
+
+	void init_Linkls();
+	int add_next(int souket,char* name, int num_of_byte);
+	int remove_ls(int souket);
+	void LS_size();
 */
 
 void init_Linkls(){
 
-	Linkls.next = null;
+	Linkls.next = NULL;
         Linkls.souket = 0;
 	Linkls.fd = 0;
 	Linkls.num_of_byte = 0;
@@ -549,78 +618,127 @@ void init_Linkls(){
 
 int add_next(int souket,char* name, int num_of_byte){
 
+unsigned char buf[0x200];
 FILE *temp;
-*linkls next,current,add;  
-
+linkls *current,*add;
+LS_size();
 
      add = (linkls*)calloc(1,sizeof(linkls)); //case fiald to calloc
-     if(pointer < 0)
+     if(add == NULL )
     	 return -1;
 
-temp = fopen( "%s.txt",name, "w"); //case fiald to open file
-	if(temp < 0)	
-	return -1;
 
+snprintf(buf, sizeof(buf), "MP3_FILE/%s.mp3", name);
+temp = fopen( buf,"w"); //case fiald to open file
+	if(temp == NULL){
+	perror("file");
+	return -1;}
 
-add.fd = temp ;
-add.num_of_byte = num_of_byte;
-add.souket = souket;
-add.next = null;
+DEBUG("4\n");
 
+add->fd = temp ;
+add->num_of_byte = num_of_byte;
+add->souket = souket;
+add->next = NULL;
 
-//Linkls
+current = &Linkls;
 
-Linkls = current;
-current.next = next;
+while(current->next != NULL)
+	current = current->next;
 
-while(next != null){
-current = next
-next.next = next;
-}
-
-current.next = add;
+current->next = add;
+LS_size();
 return 1;
 }//add_next
 
 
-linkls* find_Linkls(int souket){
+linkls * find(int souket){
+linkls *current,*ans;
 
-*linkls current,ans;
 
-while(current.next != null){
-
-if(current.souket == souket)
+current = &Linkls;
+while(current->next != NULL){
+if(current->souket == souket)
+{
 return current;
-
-current = current.next;
-
 }
 
-return null;
+current = current->next;
+
+}
+return NULL;
 
 }//ind_Linkls
 
+
+
 int remove_ls(int souket){
 	
-*linkls current,next;
+linkls *current,*next;
 
-Song
-while(next.next != null){
+LS_size(); // DEBUG
+DEBUG("1\n");
 
-if(next.souket == souket)
+current = &Linkls;
+next = current->next;
+
+if(next == NULL)
+	goto END;
+
+DEBUG("2\n");
+
+if(next->souket == souket) // case the souket is the first arg
 {
-	fclose(next.fd); //close file
-	current.next = next.next;
+	fclose(next->fd);
+	current->next = NULL;
 	free(next);
-	printf("remove souket);
+	LS_size();
+	printf("remove souket\n");
 	return 1;
-	}
-current = next;
-next = next.next;}
+}
 
-printf("no such souket);
+DEBUG("3\n");
+
+while(next != NULL){
+
+DEBUG("4\n");
+
+if(next->souket == souket)
+{
+	DEBUG("5\n");
+	fclose(next->fd); //close file
+	current->next = next->next;
+	free(next);
+	LS_size();
+	printf("remove souket\n");
+	return 1; }
+
+current = next;
+next = next->next;}
+
+END:
+printf("no such souket\n");
+LS_size();
 return -1;
 
-}
+}//remove_ls
+
+
+
+//for debug
+void LS_size(){
+	int i;
+	linkls *current;
+	current = &Linkls;
+
+	i=0;
+	while(current->next != NULL){
+		current = current->next;
+		i++;
+	}
+
+	printf("LS_size %d\n",i);
+
+}//num_of_ls
 
 
