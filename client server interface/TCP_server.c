@@ -17,7 +17,7 @@
 #define UP_SONG 	2 
 
 #define WELCOME 0
-
+#define PREMIT_SONG 2
 
 #define COM_TYPE	0
 #define STAEION_NUM	1
@@ -59,10 +59,30 @@ typedef struct dynamic_souket{
 	int num_of_souket;
 	int size;
 	int *souket_array;
-	int *file_pointer;
 
 }dynamic_souket;
 
+
+
+typedef struct linkls{
+
+	linkls* next;
+	int souket;
+	FILE *fd  ;
+	int num_of_byte;
+
+}linkls;
+
+
+
+
+typedef struct dynamic_station{
+
+	int num_of_station;
+	int size;
+	char **song_name;
+
+}dynamic_station;
 
 
 
@@ -72,7 +92,9 @@ static int num_of_client;
 static group_32 mulyicastGroup;
 static group_16 port_num;
 static dynamic_souket souket_struct;
+static dynamic_station station_struct;
 static  fd_set readfds;
+static linkls Linkls;
 
 void make_Wellcom_p(char *buffer);
 int make_Song_p(char *buffer, short station);
@@ -240,12 +262,13 @@ int make_Song_p(char *buffer, short station)
 //sand the application packet regard to the client massage
 Apllication_function(int newSocket){
 
-	char buffer[200];
+	char buffer[1024];
 	char song_name[200];
-	char song_name_size;
+	unsigned char song_name_size,premit;
 	group_16 num_16;
 	group_32 song_size;
-	int i,rcv_f;
+	int i,rcv_f,num;
+	linkls souket;
 
 
 		DEBUG("enter application\n");	
@@ -301,16 +324,64 @@ Apllication_function(int newSocket){
 			//2. if the secound byte equal to zero do 2 3 else do 4
 			//3. open the file and add the buffer data to it and return
 			//4. close the file and sand ip massage to the other procces and clear the fd file from the array
-				
 
-			for(i = 0 ;i<4;i++)
-				song_size.u8[i] = buffer[i+SONG_SIZE];
+			souket = find(newSocket);
 
-			for(i = 0 ;i<1;i++)
-				song_name_size = buffer[i+SONG_NAME_SIZE];
+			if(souket == NULL) // case this is new ask
+			{
+				for(i = 0 ;i<4;i++)
+					song_size.u8[i] = buffer[i+SONG_SIZE];
 
-			for(i = 0 ;i<song_name_size;i++)
-				song_name[i] = buffer[i + SONG_NAME];
+				for(i = 0 ;i<1;i++)
+					song_name_size = buffer[i+SONG_NAME_SIZE];
+
+				for(i = 0 ;i<song_name_size;i++)
+					song_name[i] = buffer[i + SONG_NAME];
+
+				premit = 0; //init premiut
+
+				if(add_next(newSocket,song_name,song_size.u32)) // case it secssed
+					premit = 1;
+
+
+				buffer[0] = PREMIT_SONG; //2
+				buffer[1] = premit;
+				send(newSocket,buffer,2,0);
+
+							if(i == -1)
+							{
+								perror("receive error");
+								break;
+							}
+
+			}
+
+			else {
+
+
+				if(souket.num_of_byte < 1024)
+				{
+					num = souket.num_of_byte;
+					souket.num_of_byte = 0;
+				}
+				else
+				{
+					num = 1024;
+					souket.num_of_byte -= 1024;
+				}
+
+					for(int i = 0;i< num ; i++)
+						fputc(buffer[i+1], souket.fd);
+
+
+				if(souket.num_of_byte == 0)
+				{
+					//clos procedure
+				}
+
+			}
+
+
 
 			// Upload_song(song_size.u32,song_name_size,song_name); 
 
@@ -399,5 +470,157 @@ void rmv_souket(int newSocket){
 
 	DEBUG("num of souket %d \n",souket_struct.num_of_souket);				          			          
 }//rmv_souket
+
+
+
+
+
+void init_station_struct (){
+
+stations.size = 5;
+stations.num_of_station = 0;
+stations.song_name =(char **)calloc(stations.size,sizeof(char*));
+
+}//init_station
+
+//thi methode get name of song and reurn the station number
+void add_station(char * song_name , unsigned char name_size )
+{
+
+if(stations.num_of_station +1 >= stations.size){ //realloc some more room
+
+	stations.song_name =(char **)realloc(stations.size+5,sizeof(char*));
+	stations.size += 5; }
+
+
+stations.song_name[stations.num_of_station] = (char *)malloc(name_size*sizeof(char*));
+
+for (int i=0;i<name_size;i++)
+	stations.song_name[stations.num_of_station][i] = song_name[i];
+
+stations.num_of_station += 1;
+
+}//add_station 
+
+ 
+
+
+
+unsigned char getSongName(char* name,short station){
+
+unsigned char i = 0;
+
+while(stations.song_name[stations.num_of_station][i] != '\0' )
+	{	
+	name[i] = stations.song_name[stations.num_of_station][i];
+	i++;
+	}//while
+
+	return i+1;
+}//getSongName
+
+
+
+/*
+typedef struct fd_up_linkls{
+
+	char* next;
+	int souket;
+	int fd	  ;
+
+}dynamic_souket;
+
+//to do
+//init
+//add
+//remove
+//find
+*/
+
+void init_Linkls(){
+
+	Linkls.next = null;
+        Linkls.souket = 0;
+	Linkls.fd = 0;
+	Linkls.num_of_byte = 0;
+}
+
+
+
+int add_next(int souket,char* name, int num_of_byte){
+
+FILE *temp;
+*linkls next,current,add;  
+
+
+     add = (linkls*)calloc(1,sizeof(linkls)); //case fiald to calloc
+     if(pointer < 0)
+    	 return -1;
+
+temp = fopen( "%s.txt",name, "w"); //case fiald to open file
+	if(temp < 0)	
+	return -1;
+
+
+add.fd = temp ;
+add.num_of_byte = num_of_byte;
+add.souket = souket;
+add.next = null;
+
+
+//Linkls
+
+Linkls = current;
+current.next = next;
+
+while(next != null){
+current = next
+next.next = next;
+}
+
+current.next = add;
+return 1;
+}//add_next
+
+
+linkls* find_Linkls(int souket){
+
+*linkls current,ans;
+
+while(current.next != null){
+
+if(current.souket == souket)
+return current;
+
+current = current.next;
+
+}
+
+return null;
+
+}//ind_Linkls
+
+int remove_ls(int souket){
+	
+*linkls current,next;
+
+Song
+while(next.next != null){
+
+if(next.souket == souket)
+{
+	fclose(next.fd); //close file
+	current.next = next.next;
+	free(next);
+	printf("remove souket);
+	return 1;
+	}
+current = next;
+next = next.next;}
+
+printf("no such souket);
+return -1;
+
+}
 
 
