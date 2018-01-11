@@ -13,6 +13,19 @@
 #define WELCOME 0
 #define NEW_STATION 4
 
+
+
+//---- temp
+
+
+#define COM_TYPE	0
+#define STAEION_NUM	1
+#define SONG_SIZE	1
+#define SONG_NAME_SIZE	5
+#define SONG_NAME	6
+
+
+//---
 /* -----------struct----------- */
 
 typedef union _group_16{
@@ -32,6 +45,8 @@ typedef union _group_32{
 
 static int clientSocket;
 
+
+void  upSong();
 
 int main(){
   int i,port_num,rcv_f,stram,sret;
@@ -70,7 +85,7 @@ int main(){
    	    	 exit(1);
    	 }
 
-   	serverAddr.sin_addr.s_addr = inet_addr("192.168.1.2");
+   	serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
 
 
   //
@@ -120,7 +135,7 @@ int main(){
   timeout.tv_sec = 10;
   timeout.tv_usec = 0;
 
-  sret = select(3,&readfds, NULL,NULL,&timeout);     // Wait for Welcome massage
+  sret = select(200,&readfds, NULL,NULL,&timeout);     // Wait for Welcome massage
 
   if(sret < 0 ){
   printf("timeout");
@@ -199,7 +214,7 @@ int main(){
 
    case 's':
    case 'S':
-	            //upSong(clientSocket);
+	            upSong();
 	            break;
 
   // default: goTostation(buffer);
@@ -251,3 +266,51 @@ int main(){
 //guy
   return 0;
 }
+
+
+
+
+
+void  upSong(){
+
+unsigned char song_name_size;
+group_32 song_size;
+unsigned char buffer[200];
+char song_name[20] = {"GUY"};
+int i;
+
+song_size.u32 = 5694;
+song_name_size = 3;
+
+DEBUG("upSong\n");
+
+buffer[0] = 2;
+for(i = 0 ;i<4;i++)
+buffer[i+SONG_SIZE] = song_size.u8[i];
+
+DEBUG("1\n");
+
+for(i = 0 ;i<1;i++)
+buffer[i+SONG_NAME_SIZE] = song_name_size;
+
+DEBUG("2\n");
+
+
+for(i = 0 ;i<song_name_size;i++)
+buffer[i + SONG_NAME] = song_name[i];
+
+DEBUG("%s \n",song_name);
+
+
+
+i = send(clientSocket,buffer,9,0);
+   if(i == -1)
+  {
+	  perror("receive error");
+
+  }
+  DEBUG("3\n");
+
+
+}//upSong
+
