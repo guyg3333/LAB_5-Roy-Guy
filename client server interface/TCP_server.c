@@ -121,13 +121,14 @@ typedef struct dynamic_station{
 
 
 
-static int num_of_client;
+//static int num_of_client;
 static group_32 mulyicastGroup;
 static group_16 port_num;
 static dynamic_souket souket_struct;
 static dynamic_station stations;
 static  fd_set readfds;
 static linkls Linkls;
+static int max;
 
 void make_Wellcom_p(char *buffer);
 int make_Song_p(char *buffer, short station);
@@ -193,19 +194,23 @@ int main( ){
 	//main loop 
 	while(1){
 
-		printf("Wait for client massage \n");
+
+
+		//printf("Wait for client massage \n");
 		FD_ZERO(&readfds); 					//clear the readfds
 
-		for(i=0;i < souket_struct.num_of_souket;i++)    {   	//init readfds
+		for(i=0;i < souket_struct.size;i++)    {   	//init readfds
+			if(souket_struct.souket_array[i]!=0)
 			FD_SET(souket_struct.souket_array[i],&readfds); 
 			}
 
 
-		if(select(200,&readfds, NULL,NULL,NULL)<0){     	// wait for select signal
+		if(select(100,&readfds, NULL,NULL,NULL)<0){     	// wait for select signal
 
 			perror("select");
 			goto CLOSE;
 		}
+		DEBUG("select\n");
 
 
 
@@ -308,8 +313,10 @@ Apllication_function(int newSocket){
 	int i,rcv_f,num;
 	linkls * souket;
 
+	DEBUG("application\n");
 
-		DEBUG("enter application\n");	
+
+		//DEBUG("enter application\n");
 			          
 		rcv_f = recv(newSocket, buffer, 200, 0);
 		switch(rcv_f){
@@ -329,7 +336,7 @@ Apllication_function(int newSocket){
 
 		case HELLO:	
 									  //Hello
-			DEBUG("HELLO\n");				          
+			//DEBUG("HELLO\n");
 			make_Wellcom_p(buffer);
 			i = send(newSocket,buffer,WELCOME_SIZE,0);
 			if(i == -1)
@@ -361,7 +368,7 @@ Apllication_function(int newSocket){
 
 		case UP_SONG:                                       //Upsong
 				
-			DEBUG("UP_SONG\n");
+			//DEBUG("UP_SONG\n");
 				
 			//1. find if the client uplouading allready // cheak in the souket array flag 
 			//2. if the secound byte equal to zero do 2 3 else do 4
@@ -369,10 +376,8 @@ Apllication_function(int newSocket){
 			//4. close the file and sand ip massage to the other procces and clear the fd file from the array
 
 			souket = find(newSocket);
-			DEBUG("find\n");
 			if(souket == NULL) // case this is new ask
 			{
-				DEBUG("souket == NULL\n");
 				for(i = 0 ;i<4;i++)
 					song_size.u8[i] = buffer[i+SONG_SIZE];
 
@@ -389,7 +394,6 @@ Apllication_function(int newSocket){
 					perror("add_next :");
 					}
 
-				DEBUG("add_next\n");
 				buffer[0] = PREMIT_SONG; //2
 				buffer[1] = premit;
 				send(newSocket,buffer,2,0);
@@ -416,7 +420,7 @@ Apllication_function(int newSocket){
 					souket->num_of_byte -= 1024;
 				}
 
-					for(int i = 0;i< num ; i++)
+					for(i = 0;i< num ; i++)
 						fputc(buffer[i+1], souket->fd);
 
 
@@ -478,10 +482,15 @@ void init_souket_array(){
 void add_souket(int newSocket){
 	int i,empty_space;
 
-	if(souket_struct.num_of_souket+1 >= souket_struct.size ) // if there is need to make some more rome in the array
+	max |= newSocket;
+
+	if(souket_struct.num_of_souket+1 >= souket_struct.size ) // if there is need to make some more room in the array
 	{
 		souket_struct.souket_array  =(int *)realloc(souket_struct.souket_array,(souket_struct.size+5)*sizeof(int)); // malloc new space
 		souket_struct.size = souket_struct.size+5;
+
+		for(i=souket_struct.num_of_souket;i<souket_struct.size;i++) //
+			souket_struct.souket_array[i] = 0;
 	}
 
 	//find empty space
@@ -494,7 +503,10 @@ void add_souket(int newSocket){
 	souket_struct.num_of_souket = souket_struct.num_of_souket+1;       //incremant num of souket 
 	souket_struct.souket_array[i] = newSocket;	           //place the new souket in the empty place
 	//FD_SET(newSocket,&readfds);
-	DEBUG("num of souket %d \n",souket_struct.num_of_souket);				          			          
+
+	print_soukets();
+	LS_iteam();
+
 
 }
 
@@ -502,9 +514,12 @@ void add_souket(int newSocket){
 
 void rmv_souket(int newSocket){
 	int i;
-	int *temp;
+	int *new,*temp;
 
+	max &=~newSocket;
 	remove_ls(newSocket);  // cheak if there is a file
+
+
 	if(souket_struct.num_of_souket>0)
 	{
 		for(i=0;i<souket_struct.size ;i++) //find the souket to rmv
@@ -513,29 +528,45 @@ void rmv_souket(int newSocket){
 				souket_struct.souket_array[i] = 0;
 				close(newSocket);
 
+
+
+
 				souket_struct.num_of_souket = souket_struct.num_of_souket-1;
 
 				//if the num of souket is less then the size-10 then shrink the size by 5
-				if(souket_struct.num_of_souket < souket_struct.size-10)
+				if(souket_struct.num_of_souket < souket_struct.size-5)
 				{
-					temp  =(int *)calloc(souket_struct.size-5,sizeof(int));
+					new  =(int *)calloc(souket_struct.size-5,sizeof(int));
 
-					for(i=0;i<souket_struct.size-5 ;i++) //do hard copy to the new location
+					temp = new;
+					for(i=0;i<souket_struct.size ;i++) //do hard copy to the new location
 						if(souket_struct.souket_array[i]!=0)
 							*temp++ = souket_struct.souket_array[i];
 
 					free(souket_struct.souket_array); //free the old location
-					souket_struct.souket_array = temp; //point to the new location
+					souket_struct.souket_array = new; //point to the new location
+
+					souket_struct.size = souket_struct.size-5;
 				}//if
 			}//if
 	}//if	
 	else printf("no argument to remove\n");
+	print_soukets();
+	DEBUG(" \n");
+	LS_iteam();
 
-	DEBUG("num of souket %d \n",souket_struct.num_of_souket);				          			          
+
 }//rmv_souket
 
 
+void print_soukets(){
+	int i;
+	for(i=0;i<souket_struct.size;i++){
+		if(souket_struct.souket_array[i]!=0)
+		printf("index:	%d	num:	%d	\n",i,souket_struct.souket_array[i]);
+	}
 
+}
 
 
 
@@ -557,6 +588,7 @@ stations.song_name =(char **)calloc(stations.size,sizeof(char*));
 //thi methode get name of song and reurn the station number
 void add_station(char * song_name , unsigned char name_size )
 {
+int i;
 
 if(stations.num_of_station +1 >= stations.size){ //realloc some more room
 
@@ -566,7 +598,7 @@ if(stations.num_of_station +1 >= stations.size){ //realloc some more room
 
 stations.song_name[stations.num_of_station] = (char *)malloc(name_size*sizeof(char*));
 
-for (int i=0;i<name_size;i++)
+for ( i=0;i<name_size;i++)
 	stations.song_name[stations.num_of_station][i] = song_name[i];
 
 stations.num_of_station += 1;
@@ -609,7 +641,7 @@ to use this struct use the fallowing function:
 void init_Linkls(){
 
 	Linkls.next = NULL;
-        Linkls.souket = 0;
+    Linkls.souket = 0;
 	Linkls.fd = 0;
 	Linkls.num_of_byte = 0;
 }
@@ -621,7 +653,6 @@ int add_next(int souket,char* name, int num_of_byte){
 unsigned char buf[0x200];
 FILE *temp;
 linkls *current,*add;
-LS_size();
 
      add = (linkls*)calloc(1,sizeof(linkls)); //case fiald to calloc
      if(add == NULL )
@@ -634,7 +665,6 @@ temp = fopen( buf,"w"); //case fiald to open file
 	perror("file");
 	return -1;}
 
-DEBUG("4\n");
 
 add->fd = temp ;
 add->num_of_byte = num_of_byte;
@@ -647,7 +677,10 @@ while(current->next != NULL)
 	current = current->next;
 
 current->next = add;
-LS_size();
+
+print_soukets();
+
+LS_iteam();
 return 1;
 }//add_next
 
@@ -673,31 +706,20 @@ return NULL;
 
 
 int remove_ls(int souket){
-	
-linkls *current,*next;
 
-LS_size(); // DEBUG
 DEBUG("1\n");
+linkls *current,*next;
 
 current = &Linkls;
 next = current->next;
 
-if(next == NULL)
-	goto END;
-
+if(next == NULL){
 DEBUG("2\n");
-
-if(next->souket == souket) // case the souket is the first arg
-{
-	fclose(next->fd);
-	current->next = NULL;
-	free(next);
-	LS_size();
-	printf("remove souket\n");
-	return 1;
+	goto END;
 }
 
-DEBUG("3\n");
+
+
 
 while(next != NULL){
 
@@ -711,14 +733,18 @@ if(next->souket == souket)
 	free(next);
 	LS_size();
 	printf("remove souket\n");
+	print_soukets();
+	LS_iteam();
+
+
 	return 1; }
 
-current = next;
-next = next->next;}
+current = current->next;
+next = next->next;
+}
 
 END:
 printf("no such souket\n");
-LS_size();
 return -1;
 
 }//remove_ls
@@ -737,8 +763,30 @@ void LS_size(){
 		i++;
 	}
 
-	printf("LS_size %d\n",i);
+	printf("LS_size 0 %d\n",i);
 
 }//num_of_ls
 
 
+
+
+void LS_iteam(){
+	int i;
+	linkls *current;
+	current = &Linkls;
+
+	i=0;
+	printf("\n");
+	while(current != NULL){
+
+		printf("index:	%d	fd:	%d	num_of_byte:	%d	souket:	%d	next:	%p\n",i,current->fd,current->num_of_byte,current->souket,current->next);
+		current = current->next;
+		i++;
+
+
+
+	}
+
+	printf("LS_size %d\n",i-1);
+
+}//num_of_ls

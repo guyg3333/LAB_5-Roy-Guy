@@ -67,7 +67,6 @@ int main(){
   START:
 
 
-
     //-----DEBUG
 
     port_num = 2500;
@@ -259,6 +258,7 @@ int main(){
 
   CLOSE:
 
+  shutdown(clientSocket,SHUT_WR);
   close(clientSocket);
 
 
