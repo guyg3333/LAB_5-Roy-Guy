@@ -139,6 +139,8 @@ void init_souket_array();
 void add_souket(int newSocket);
 void rmv_souket(int newSocket);
 linkls * find(int souket);
+int add_next(int souket,unsigned char song_name_size,char* name, int num_of_byte);
+int remove_ls(int souket);
 
 
 
@@ -175,8 +177,8 @@ int main( ){
 
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(PORT);
-	//serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
+	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	//serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
 	memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
 
 	bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
@@ -195,6 +197,7 @@ int main( ){
 	while(1){
 
 
+		DEBUG("main while\n");
 
 		//printf("Wait for client massage \n");
 		FD_ZERO(&readfds); 					//clear the readfds
@@ -310,33 +313,53 @@ Apllication_function(int newSocket){
 	unsigned char song_name_size,premit;
 	group_16 num_16;
 	group_32 song_size;
-	int i,rcv_f,num;
+	int i,rcv_f;
 	linkls * souket;
 
-	DEBUG("application\n");
+		DEBUG("application\n");
+		rcv_f = recv(newSocket, buffer, 1024, 0);
+		if(rcv_f<= 0)
+		{
+			perror("receive error");
+			rmv_souket(newSocket);
+		}
 
 
-		//DEBUG("enter application\n");
-			          
-		rcv_f = recv(newSocket, buffer, 200, 0);
-		switch(rcv_f){
-		case -1: perror("receive error");
-				  rmv_souket(newSocket);
 
-				  return;
+		souket = find(newSocket);
+		if(souket != NULL) // if the souket is sanding song data
+		{
+			DEBUG("find\n");
+			souket->num_of_byte -= rcv_f;
+			DEBUG("fputc start\n");
 
-		case  0: printf("finACK \n");
-				 rmv_souket(newSocket);
+				for(i = 0;i< rcv_f ; i++)
+					fputc(buffer[i], souket->fd);
 
-				 return;
-		}//switch
+			DEBUG("fputc end\n");
 
+
+			if(souket->num_of_byte == 0)
+			{
+				DEBUG("end reciving. closing the fd \n");
+				remove_ls(souket->souket);
+				//clos procedure
+				/*TODO
+				 * 1. - close the fd
+				 * 2. - add station to the station struct
+				 * 3. - sand suoket massge to the other process following file name
+				 */
+			}
+		}//if find
+
+		else
+		{
 
 		switch(buffer[COM_TYPE]){
 
 		case HELLO:	
 									  //Hello
-			//DEBUG("HELLO\n");
+			DEBUG("HELLO\n");
 			make_Wellcom_p(buffer);
 			i = send(newSocket,buffer,WELCOME_SIZE,0);
 			if(i == -1)
@@ -352,7 +375,7 @@ Apllication_function(int newSocket){
 
 
 
-
+			DEBUG("ASK_SONG");
 			for(i = 0 ;i<2;i++)
 				num_16.u8[i] = buffer[i+STAEION_NUM];
 
@@ -367,20 +390,24 @@ Apllication_function(int newSocket){
 
 
 		case UP_SONG:                                       //Upsong
-				
-			//DEBUG("UP_SONG\n");
+
+			DEBUG("UP_SONG\n");
 				
 			//1. find if the client uplouading allready // cheak in the souket array flag 
 			//2. if the secound byte equal to zero do 2 3 else do 4
 			//3. open the file and add the buffer data to it and return
 			//4. close the file and sand ip massage to the other procces and clear the fd file from the array
 
-			souket = find(newSocket);
-			if(souket == NULL) // case this is new ask
-			{
+			//souket = find(newSocket);
+			//if(souket == NULL) // case this is new ask
+			//{
+				DEBUG("Not find\n");
+
 				for(i = 0 ;i<4;i++)
 					song_size.u8[i] = buffer[i+SONG_SIZE];
 
+
+				DEBUG("song_size : %d\n",song_size.u32);
 				for(i = 0 ;i<1;i++)
 					song_name_size = buffer[i+SONG_NAME_SIZE];
 
@@ -388,7 +415,7 @@ Apllication_function(int newSocket){
 					song_name[i] = buffer[i + SONG_NAME];
 
 				premit = 1; //init premiut
-				if(add_next(newSocket,song_name,song_size.u32) == -1) // case it secssed add the new
+				if(add_next(newSocket,song_name_size,song_name,song_size.u32) == -1) // case it secssed add the new
 					{
 					premit = 0;
 					perror("add_next :");
@@ -396,62 +423,29 @@ Apllication_function(int newSocket){
 
 				buffer[0] = PREMIT_SONG; //2
 				buffer[1] = premit;
-				send(newSocket,buffer,2,0);
+				send(newSocket,buffer,2,0); //sand premit massge
 
 							if(i == -1)
 							{
-								perror("receive error");
+								perror("send error");
 								break;
 							}
 
-			}
-
-			else {
-
-
-				if(souket->num_of_byte < 1024)
-				{
-					num = souket->num_of_byte;
-					souket->num_of_byte = 0;
-				}
-				else
-				{
-					num = 1024;
-					souket->num_of_byte -= 1024;
-				}
-
-					for(i = 0;i< num ; i++)
-						fputc(buffer[i+1], souket->fd);
-
-
-				if(souket->num_of_byte == 0)
-				{
-					//clos procedure
-				}
-
-			}
-
-
-
-			// Upload_song(song_size.u32,song_name_size,song_name); 
-
+			//}
 			break;
-				
-		                                       //Upsong
-				
-			
-		
-				
-			
-			
 
+			// Upload_song(song_size.u32,song_name_size,song_name);
 
 		default:
-
+			DEFAULT:
+			DEBUG("default\n");
 			printf("unknown massage type  closing TCP connection");
 			rmv_souket(newSocket);
 
+
 		}//switch
+	}//else
+
 }//Apllication_function
 
 
@@ -505,7 +499,7 @@ void add_souket(int newSocket){
 	//FD_SET(newSocket,&readfds);
 
 	print_soukets();
-	LS_iteam();
+	//LS_iteam();
 
 
 }
@@ -553,7 +547,7 @@ void rmv_souket(int newSocket){
 	else printf("no argument to remove\n");
 	print_soukets();
 	DEBUG(" \n");
-	LS_iteam();
+	//LS_iteam();
 
 
 }//rmv_souket
@@ -648,18 +642,25 @@ void init_Linkls(){
 
 
 
-int add_next(int souket,char* name, int num_of_byte){
+int add_next(int souket,unsigned char song_name_size,char* name, int num_of_byte){
 
+unsigned char name_buf[0x200];
 unsigned char buf[0x200];
 FILE *temp;
 linkls *current,*add;
+int i;
 
      add = (linkls*)calloc(1,sizeof(linkls)); //case fiald to calloc
      if(add == NULL )
     	 return -1;
 
+for(i =0;i<song_name_size ; i++)
+	name_buf[i] = name[i];
+	name_buf[i+1] = '/0';
 
-snprintf(buf, sizeof(buf), "MP3_FILE/%s.mp3", name);
+
+snprintf(buf, sizeof(buf), "MP3_FILE/%s", name_buf);
+DEBUG(buf);
 temp = fopen( buf,"w"); //case fiald to open file
 	if(temp == NULL){
 	perror("file");
@@ -686,11 +687,16 @@ return 1;
 
 
 linkls * find(int souket){
-linkls *current,*ans;
+linkls *current;
 
+DEBUG("souket %d\n",souket);
 
+LS_iteam();
 current = &Linkls;
-while(current->next != NULL){
+
+while(current != NULL){
+DEBUG("current.souket %d\n",current->souket);
+
 if(current->souket == souket)
 {
 return current;
