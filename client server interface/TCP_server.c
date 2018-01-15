@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <pthread.h>
 
 
 #define DST_IP "239.0.0.1"
@@ -147,8 +147,8 @@ static dynamic_souket souket_struct;
 static dynamic_station stations;
 static  fd_set readfds;
 static linkls Linkls;
-static int max;
 
+static int max;
 struct sockaddr_in tmpIP;
 struct in_addr iaddr;
 struct sockaddr_in saddr;
@@ -162,8 +162,12 @@ unsigned char TTL = 128;
 char one = 1;
 int cn = 0,ssent,i=0;
 FILE *fp;
-station *stations_radio;
+station stations_radio[100];
 int songsNumber = 0;
+
+
+
+
 
 void finish(char* s){
 	perror(s);
@@ -192,6 +196,9 @@ void init_station_struct ();
 void send_inv(int Socket,char *invM);
 int user_input();
 void print_station();
+void add_new_station(char* songName);
+void *radio_stream();
+void init_Linkls();
 
 
 
@@ -200,10 +207,12 @@ int main( ){
 
 	int welcomeSocket, newSocket,i;
 
+	//stations_radio =
 	struct sockaddr_in serverAddr;
 	struct sockaddr_storage serverStorage;
 	socklen_t addr_size;
-	 pthread_t Stream;
+	pthread_t Stream;
+
 
 
 	init_souket_array();   // init the souket_struct
@@ -214,20 +223,19 @@ int main( ){
 	DEBUG("Start \n");
 
 
-	mulyicastGroup.u8[0] = 224;
-	mulyicastGroup.u8[1] = 1;
-	mulyicastGroup.u8[2] = 2;
-	mulyicastGroup.u8[3] = 3;
+	mulyicastGroup.u8[0] = 239;
+	mulyicastGroup.u8[1] = 0;
+	mulyicastGroup.u8[2] = 0;
+	mulyicastGroup.u8[3] = 1;
 
 
 
-	port_num.u16 = 2545;
+	port_num.u16 = 6000;
 
 
 
 
-
-    pthread_create(&Stream, NULL, radio_stream, (void *));
+    pthread_create(&Stream, NULL, radio_stream, NULL);
 
 
 	welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
@@ -319,6 +327,12 @@ int main( ){
 	clos_station();
 	*/
 
+	pthread_cancel(Stream);
+
+	for(i=0;i<songsNumber;i++)
+		close(stations_radio[i].sd);
+
+
 	for(i=0;i < souket_struct.num_of_souket;i++)       //case of error
 		close(souket_struct.souket_array[i]);
 
@@ -341,6 +355,11 @@ int main( ){
 
 //radio_stream
 void *radio_stream(){
+
+int i;
+songsNumber = 0;
+DEBUG("enetr to radio_stream\n");
+//TODO closing
 
 	while(1)
 		{
@@ -373,10 +392,10 @@ void *radio_stream(){
 
 }//radio_stream
 
-
 void add_new_station(char* songName){
 
 char buf[200];
+DEBUG("add_new_station\n");
 
 	// set content of struct saddr and imreq to zero
 	memset((char*)&saddr, 0, sizeof(struct sockaddr_in));
@@ -431,11 +450,8 @@ char buf[200];
 	// join the multicast group
    	setsockopt(stations_radio[songsNumber].sd, IPPROTO_IP, IP_ADD_MEMBERSHIP,DST_IP, 15);
 
-	fp = popen("play-tmp3->/dev/null 2>&1","w");   //open a pipe. output is sent to dev/null
 
 	songsNumber++;
-
-
 
 }
 
@@ -667,8 +683,7 @@ void make_Wellcom_p(char *buffer){
 
 }//make_Wellcom_p
 
-int make_Song_p(unsigned char *buffer, short station)
-{
+int make_Song_p(unsigned char *buffer, short station){
 
 	unsigned char song_name_size;
 	int i;
@@ -816,8 +831,7 @@ stations.song_name = (char **)calloc(stations.size,sizeof(char*));
 
 
 //thi methode get name of song and reurn the station number
-void add_station(char* song_name , unsigned char name_size )
-{
+void add_station(char* song_name , unsigned char name_size ){
 int i;
 
 DEBUG("add_station 1 \n");
@@ -959,7 +973,7 @@ current = current->next;
 }
 return NULL;
 
-}//ind_Linkls
+}//find
 
 int remove_ls(int souket){
 
