@@ -420,7 +420,9 @@ void resetTimer()
 void closeSockets(char* s)
 {
 	//close all opened sockets
-	if(serverTCPsock!=NOT_OPENED) close(serverTCPsock);
+	if(serverTCPsock!=NOT_OPENED) {
+		close(serverTCPsock);
+	}
 	perror(s);
 	exit(1);
 }

@@ -35,6 +35,7 @@
 
 #define ANNOUNCE 	1
 #define NAME_SIZE 	1
+#define SONG_AN_NAME 2
 
 #define NEW_STATION 4
 
@@ -134,7 +135,7 @@ static linkls Linkls;
 static int max;
 
 void make_Wellcom_p(char *buffer);
-int make_Song_p(char *buffer, short station);
+int make_Song_p(unsigned char *buffer, short station);
 unsigned char getSongName(char* name,short station);
 short getnumStations();
 void Apllication_function(int newSocket);
@@ -189,8 +190,8 @@ int main( ){
 
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(PORT);
-	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	//serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
+	//serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
 	memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
 
 	bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
@@ -294,44 +295,28 @@ void make_Wellcom_p(char *buffer){
 
 
 //set buffer with ask song packet
-int make_Song_p(char *buffer, short station)
+int make_Song_p(unsigned char *buffer, short station)
 {
 
-	char song_name_size;
+	unsigned char song_name_size;
 	int i;
-	char no_s[200] = "no souch station ";
-
-	DEBUG("make_Song: _num_of_statio %d  the ask station %d \n", stations.num_of_station ,station);
-	DEBUG("make_Song_test %s \n",stations.song_name[0]);
+	char ans[20] = "No souch station";
 
 	buffer[REPLY_TYPE] = ANNOUNCE; //1
-	if(station < stations.num_of_station && station >=0 )
+	if(station <= stations.num_of_station-1 && station >=0 )
 	{
-		DEBUG("make_Song_p 1\n");
 		song_name_size  = strlen(stations.song_name[station]);
-		buffer[NAME_SIZE] = song_name_size; //1
+		buffer[NAME_SIZE] = song_name_size;
+		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",(char *)stations.song_name[station]);
 
-		DEBUG("make_Song_p 2\n");
-		DEBUG("make_Song_%s \n",stations.song_name[station]);
-
-
-
-		for(i = 0 ;i<song_name_size;i++)
-			buffer[i+SONG_NAME_SIZE] = stations.song_name[station][i];
-
-		return song_name_size + 2;
 	}//if
 	else
 	{
-		DEBUG("make_Song_p 3\n");
-		song_name_size  = strlen(no_s);
-		buffer[NAME_SIZE] = song_name_size; //1
-
-		for(i = 0 ;i<song_name_size;i++)
-			buffer[i+SONG_NAME_SIZE] = no_s[i];
-
-		return song_name_size + 2;
+		song_name_size  = strlen(ans);
+		buffer[NAME_SIZE] = song_name_size;
+		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",ans);
 	}//else
+		return song_name_size + 2;
 
 }//make_Song_p
 
@@ -342,7 +327,7 @@ int make_Song_p(char *buffer, short station)
 //sand the application packet regard to the client massage
 void Apllication_function(int newSocket){
 
-	char buffer[1050];
+	unsigned char buffer[1050] ={0};
 	char song_name[200];
 	unsigned char song_name_size,premit;
 	group_16 num_16 ={0};
@@ -354,8 +339,14 @@ void Apllication_function(int newSocket){
 		rcv_f = recv(newSocket, buffer, 1024, 0);
 		if(rcv_f<= 0)
 		{
+			if(rcv_f<0)
 			perror("receive error");
+
+			else
+			printf("finack -rm: %d \n",newSocket);
+
 			rmv_souket(newSocket);
+			return;
 		}
 
 
@@ -363,19 +354,14 @@ void Apllication_function(int newSocket){
 		souket = find(newSocket);
 		if(souket != NULL) // if the souket is sanding song data
 		{
-			DEBUG("find\n");
+			DEBUG("souket != NULL\n");
 			souket->num_of_byte -= rcv_f;
-			DEBUG("fputc start\n");
 
 				for(i = 0;i< rcv_f ; i++)
 					fputc(buffer[i], souket->fd);
 
-			DEBUG("fputc end\n");
-
-
 			if(souket->num_of_byte == 0)
 			{
-				DEBUG("end reciving. closing the fd \n");
 				add_station(souket->name,souket->name_size);
 				remove_ls(souket->souket);
 
@@ -386,7 +372,6 @@ void Apllication_function(int newSocket){
 				buffer[1] = num_16.u8[0];
 				buffer[2] = num_16.u8[1];
 
-				DEBUG("num of station %d",stations.num_of_station);
 
 				for(i=0;i < souket_struct.size;i++)    //init readfds
 				{
@@ -395,10 +380,10 @@ void Apllication_function(int newSocket){
 						send(newSocket,buffer,3,0); //sand premit massge
 							if(i == -1)
 								perror("send error");
-					}
+					}//if send error
 
-				}
-			}
+				}//for
+			}//if the end of reciving
 		}//if find
 
 		else
@@ -422,22 +407,9 @@ void Apllication_function(int newSocket){
 
 		case ASK_SONG:	  								  //Ask_song
 
-
-
-			DEBUG("ASK_SONG \n");
-
-			DEBUG("ASK_SONG num_16 before;\n",num_16.u16);
-
-			DEBUG("ASK_SONG buffer[0+STAEION_NUM];\n",buffer[0+STAEION_NUM]);
-			DEBUG("ASK_SONG buffer[1+STAEION_NUM];\n",buffer[i+STAEION_NUM]);
-
-
-			for(i = 0 ;i<2;i++){
-				DEBUG("ASK_SONG num_16.u8[i] : %d	",num_16.u8[i]);
-				num_16.u8[i] = buffer[i+STAEION_NUM];
-			}
-			DEBUG("\n");
-			DEBUG("ASK_SONG : reacive %d when  num_16.u8[0]: %d num_16.u8[1]:%d",num_16.u16, num_16.u8[0], num_16.u8[1]);
+			DEBUG("ASK_SONG\n");
+			num_16.u8[0] = buffer[0+STAEION_NUM];
+			num_16.u8[1] = buffer[1+STAEION_NUM];
 
 			i = make_Song_p(buffer,num_16.u16);
 			i= send(newSocket,buffer,i,0);
@@ -466,8 +438,6 @@ void Apllication_function(int newSocket){
 				for(i = 0 ;i<4;i++)
 					song_size.u8[i] = buffer[i+SONG_SIZE];
 
-
-				DEBUG("song_size : %d\n",song_size.u32);
 				for(i = 0 ;i<1;i++)
 					song_name_size = buffer[i+SONG_NAME_SIZE];
 
@@ -581,10 +551,6 @@ void rmv_souket(int newSocket){
 			{
 				souket_struct.souket_array[i] = 0;
 				close(newSocket);
-
-
-
-
 				souket_struct.num_of_souket = souket_struct.num_of_souket-1;
 
 				//if the num of souket is less then the size-10 then shrink the size by 5
@@ -631,7 +597,7 @@ void init_station_struct (){
 
 stations.size = 5;
 stations.num_of_station = 0;
-stations.song_name =(char **)calloc(stations.size,sizeof(char*));
+stations.song_name = (char **)calloc(stations.size,sizeof(char*));
 
 }//init_station
 
@@ -648,7 +614,7 @@ DEBUG("add_station 1 \n");
 
 if(stations.num_of_station +1 >= stations.size){ //realloc some more room
 
-	stations.song_name =(char **)realloc(stations.size+5,sizeof(char*));
+	stations.song_name =(char **)realloc((int)stations.size+5,sizeof(char*));
 	stations.size += 5; }
 
 DEBUG("add_station 2 \n");
