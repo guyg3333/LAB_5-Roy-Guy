@@ -181,7 +181,6 @@ void finish(char* s){
 void make_Wellcom_p(char *buffer);
 int make_Song_p(unsigned char *buffer, short station);
 unsigned char getSongName(char* name,short station);
-short getnumStations();
 void Apllication_function(int newSocket);
 void init_souket_array();
 void add_souket(int newSocket);
@@ -199,6 +198,7 @@ void print_station();
 void add_new_station(char* songName);
 void *radio_stream();
 void init_Linkls();
+void make_Wellcom_p(char *buffer);
 
 
 
@@ -290,7 +290,7 @@ int main( ){
 
 		FD_SET(0,&readfds); //Stream
 
-		if(select(100,&readfds, NULL,NULL,NULL)<0){     	// wait for select signal
+		if(select(max+1,&readfds, NULL,NULL,NULL)<0){     	// wait for select signal
 
 			perror("select");
 			//goto CLOSE;
@@ -402,10 +402,10 @@ DEBUG("add_new_station\n");
     memset(&iaddr, 0, sizeof(struct in_addr));
 	memset((char*)&tmpIP, 0, sizeof(struct sockaddr_in));
 
-	snprintf(buf, sizeof(buf), "MP3_FILE/%s",songName);
+	//snprintf(buf, sizeof(buf), "MP3_FILE/%s",songName);
 
 
-	if(!((stations_radio[songsNumber]).songFD = fopen(buf,"rb")))
+	if(!((stations_radio[songsNumber]).songFD = fopen(songName,"rb")))
 		finish("failed to open file \n");
 	else
 		printf("file opened \n");
@@ -483,7 +483,7 @@ void Apllication_function(int newSocket){
 			else
 			printf("finack -rm: %d \n",newSocket);
 
-			rmv_souket(newSocket);
+			rmv_souket(newSocket); //TODO if process is uploading delete the unfinish file
 			return;
 		}
 
@@ -583,8 +583,9 @@ void Apllication_function(int newSocket){
 
 				for(i = 0 ;i<song_name_size;i++)
 					song_name[i] = buffer[i + SONG_NAME];
+					song_name[i=1] = '\0';
 
-
+					/*
 				DEBUG("strlen %d  song name size %d",strlen(song_name),song_name_size);
 				 if(strlen(song_name) != song_name_size){
 					send_inv(newSocket,"\n ERROR :) SongNameSize field isn't equal to the size of the song name\n");
@@ -594,7 +595,7 @@ void Apllication_function(int newSocket){
 
 				    break;
 				 }
-
+				*/
 
 				premit = 1; //init premiut
 				if(add_next(newSocket,song_name_size,song_name,song_size.u32) == -1) // case it secssed add the new
@@ -621,9 +622,8 @@ void Apllication_function(int newSocket){
 		default:
 
 			DEBUG("default\n");
-			printf("unknown massage type  closing TCP connection");
+			printf("unknown massage type closing TCP connection");
 			rmv_souket(newSocket);
-
 
 		}//switch
 	}//else
@@ -659,7 +659,7 @@ DEBUG("user_input()\n");
 		   printf("unknown input\n");
 
 	   }
-	return 1; //TODO when return -1 close
+	return 1;
 }//user_input
 
 
@@ -694,14 +694,15 @@ int make_Song_p(unsigned char *buffer, short station){
 	{
 		song_name_size  = strlen(stations.song_name[station]);
 		buffer[NAME_SIZE] = song_name_size;
-		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",(char *)stations.song_name[station]);
-
+		//snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",(char *)stations.song_name[station]);
+		strcpy((char *)buffer + SONG_AN_NAME ,stations.song_name[station]);
 	}//if
 	else
 	{
 		song_name_size  = strlen(ans);
 		buffer[NAME_SIZE] = song_name_size;
 		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",ans);
+		//strcpy((char *)buffer + SONG_AN_NAME, ans);
 	}//else
 		return song_name_size + 2;
 
@@ -838,7 +839,7 @@ DEBUG("add_station 1 \n");
 
 if(stations.num_of_station +1 >= stations.size){ //realloc some more room
 
-	stations.song_name =(char **)realloc((int)stations.size+5,sizeof(char*));
+	stations.song_name =(char **)realloc(stations.size+5,sizeof(char*));
 	stations.size += 5; }
 
 DEBUG("add_station 2 \n");
@@ -909,19 +910,17 @@ void init_Linkls(){
 
 int add_next(int souket,unsigned char song_name_size,char* name, int num_of_byte){
 
-char name_buf[200];
 char buf[200];
 FILE *temp;
 linkls *current,*add;
-int i;
 
 
      add = (linkls*)calloc(1,sizeof(linkls)); //case fiald to calloc
      if(add == NULL )
     	 return -1;
 
-snprintf(add->name, sizeof(add->name), "%s",name); // copy the name to station struct
 
+strcpy(add->name,name); // copy the name to station struct
 snprintf(buf, sizeof(buf), "MP3_FILE/%s",name); // open new file with the name of the station
 DEBUG("%s",buf);
 temp = fopen( buf,"w"); //case fiald to open file
@@ -1001,7 +1000,6 @@ if(next->souket == souket)
 	fclose(next->fd); //close file
 	current->next = next->next;
 	free(next);
-	LS_size();
 	printf("remove souket\n");
 	//print_soukets();
 	//LS_iteam();
