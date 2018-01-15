@@ -4,9 +4,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <stdlib.h>
 
 
 
+#define DST_IP "239.0.0.1"
+#define DST_PORT 6000
+
+
+#define STREAM	0
 #define DEBUG	  printf //uncomment to remove all printf's
 #define FRAME_SIZE 1024
 #define PORT 2500
@@ -39,11 +45,12 @@
 
 #define NEW_STATION 4
 
+#define INVALIDCOMMAND 3;
 /* -----------Union----------- */
 
 typedef union _group_16{
 
-	char u8[2];
+	unsigned char u8[2];
 	short u16;
 
 } group_16;
@@ -51,7 +58,7 @@ typedef union _group_16{
 
 typedef union _group_32{
 
-	char u8[4];
+	unsigned char u8[4];
 	int u32;
 
 } group_32;
@@ -113,13 +120,21 @@ typedef struct linkls{
 	void add_station(char * song_name , unsigned char name_size )
 	unsigned char getSongName(char* name,short station)
 */
-typedef struct dynamic_station{
+typedef struct{
 
 	int num_of_station;
 	int size;
 	char **song_name;
 
 }dynamic_station;
+
+typedef struct{
+	int sd;
+	FILE *songFD;
+	char *songName;
+	//int numOfStation;
+	//listener list[100];
+}station;
 
 
 
@@ -133,6 +148,31 @@ static dynamic_station stations;
 static  fd_set readfds;
 static linkls Linkls;
 static int max;
+
+struct sockaddr_in tmpIP;
+struct in_addr iaddr;
+struct sockaddr_in saddr;
+struct timespec waitTime;
+int sd,i,numOfFrames,len;
+int fileSize = 50000;
+FILE *fd;
+char databuf[1024];
+int len;
+unsigned char TTL = 128;
+char one = 1;
+int cn = 0,ssent,i=0;
+FILE *fp;
+station *stations_radio;
+int songsNumber = 0;
+
+void finish(char* s){
+	perror(s);
+	exit(1);
+}
+
+
+
+
 
 void make_Wellcom_p(char *buffer);
 int make_Song_p(unsigned char *buffer, short station);
@@ -149,6 +189,9 @@ void add_station(char* song_name , unsigned char name_size );
 void LS_iteam();
 void print_soukets();
 void init_station_struct ();
+void send_inv(int Socket,char *invM);
+int user_input();
+void print_station();
 
 
 
@@ -160,6 +203,7 @@ int main( ){
 	struct sockaddr_in serverAddr;
 	struct sockaddr_storage serverStorage;
 	socklen_t addr_size;
+	 pthread_t Stream;
 
 
 	init_souket_array();   // init the souket_struct
@@ -169,18 +213,22 @@ int main( ){
 	//struct timeval timeout;
 	DEBUG("Start \n");
 
-	/*
+
 	mulyicastGroup.u8[0] = 224;
 	mulyicastGroup.u8[1] = 1;
 	mulyicastGroup.u8[2] = 2;
 	mulyicastGroup.u8[3] = 3;
 
-	buf[100];
-	snprintf(buf, sizeof(buf), "%d.%d.%d.%d",mulyicastGroup.u8[0],mulyicastGroup.u8[1],mulyicastGroup.u8[2],mulyicastGroup.u8[3]); // open new file with the name of the station
 
-	*/
 
 	port_num.u16 = 2545;
+
+
+
+
+
+    pthread_create(&Stream, NULL, radio_stream, (void *));
+
 
 	welcomeSocket = socket(PF_INET, SOCK_STREAM, 0);
 	add_souket(welcomeSocket);	 // add the welcome souket
@@ -191,28 +239,40 @@ int main( ){
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(PORT);
 	//serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
+	//serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
+	serverAddr.sin_addr.s_addr = inet_addr("132.72.105.95");
+
 	memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
 
 	bind(welcomeSocket, (struct sockaddr *) &serverAddr, sizeof(serverAddr));
 
-	if(listen(welcomeSocket,5)==0)
-		printf("Listening\n");
+
+	if(listen(welcomeSocket,5)==0){
+		printf("  ccccc   ssss   EEEEEE  \n");
+		printf(" cc      ss      E       \n");
+		printf(" cc        ss    EEEEEE  \n");
+		printf(" ccc        sss  E     	 \n");
+		printf("  ccccC  sssss   EEEEEE  \n");
+	}
 	else
 		printf("Error\n");
-
+/*
 	addr_size = sizeof serverStorage;
 	newSocket = accept(welcomeSocket, (struct sockaddr *) &serverStorage, &addr_size);
-	add_souket(newSocket);	 // add the new souket
+	add_souket(newSocket);	 // add the new socket
+*/
 
+
+	START:
+
+	printf("Enter:\n1. 'p' to see all the data bases of the available stations\n2. 'q' to quit the program\n");
 
 	//main loop 
 	while(1){
 
 
-		DEBUG("main while\n");
 
-		//printf("Wait for client massage \n");
+		//DEBUG("main while\n");
 		FD_ZERO(&readfds); 					//clear the readfds
 
 		for(i=0;i < souket_struct.size;i++)    {   	//init readfds
@@ -220,13 +280,14 @@ int main( ){
 			FD_SET(souket_struct.souket_array[i],&readfds); 
 			}
 
+		FD_SET(0,&readfds); //Stream
 
 		if(select(100,&readfds, NULL,NULL,NULL)<0){     	// wait for select signal
 
 			perror("select");
-			goto CLOSE;
+			//goto CLOSE;
 		}
-		DEBUG("select\n");
+		//DEBUG("select\n");
 
 
 
@@ -240,91 +301,152 @@ int main( ){
 			if(FD_ISSET(souket_struct.souket_array[i],&readfds))
 				Apllication_function(souket_struct.souket_array[i]); // answer to client message  
 
+
+		if(FD_ISSET(STREAM,&readfds)){
+
+				if(user_input()==-1)
+					goto CLOSE;
+					goto START; }
 	}//while
 
 	CLOSE:
 
-	printf("close\n");
+	printf("Bye Bye..:) \n");
+
+	/*
+	close_sock(); TODO
+	close_ls();
+	clos_station();
+	*/
+
 	for(i=0;i < souket_struct.num_of_souket;i++)       //case of error
 		close(souket_struct.souket_array[i]);
 
 	free(souket_struct.souket_array);
-
-
 	return 0;
-}
-
-
-
-short getnumStations(){
-
-	return 6;
-}
-
-/*
-char getSongName(char *name,short station){
-	int i;
-	char buffer[20] = "ROY";
-
-	for(i=0;i<3;i++)
-		*name++ = buffer[i];
-
-	return 3;
-}
-*/
-
-//set buffer for
-void make_Wellcom_p(char *buffer){
-	group_16 num_16;
-	int i;
-
-	buffer[REPLY_TYPE] = WELCOME; //0
-
-	num_16.u16 = stations.num_of_station;
-
-	for(i = 0;i<2;i++)
-		buffer[i+NUM_STATION] = num_16.u8[i]; // 1
-
-	for(i = 0 ;i<4;i++)
-		buffer[i+M_GROUP] = mulyicastGroup.u8[i]; //3
-
-	for(i = 0 ;i<2;i++) //7
-		buffer[i+PORT_NUM] = port_num.u8[i];
-
-}
-
-
-//set buffer with ask song packet
-int make_Song_p(unsigned char *buffer, short station)
-{
-
-	unsigned char song_name_size;
-	int i;
-	char ans[20] = "No souch station";
-
-	buffer[REPLY_TYPE] = ANNOUNCE; //1
-	if(station <= stations.num_of_station-1 && station >=0 )
-	{
-		song_name_size  = strlen(stations.song_name[station]);
-		buffer[NAME_SIZE] = song_name_size;
-		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",(char *)stations.song_name[station]);
-
-	}//if
-	else
-	{
-		song_name_size  = strlen(ans);
-		buffer[NAME_SIZE] = song_name_size;
-		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",ans);
-	}//else
-		return song_name_size + 2;
-
-}//make_Song_p
-
+}//main
 
 
 
 
 //sand the application packet regard to the client massage
+//set buffer with ask song packet
+
+
+
+
+/* -----------  Radio stream --------------  */
+
+
+
+//radio_stream
+void *radio_stream(){
+
+	while(1)
+		{
+
+			if(songsNumber < stations.num_of_station ) // if there is new station
+			{
+				add_new_station(stations.song_name[songsNumber]);
+			}
+
+			for(i = 0;i < songsNumber; i++)
+			{
+				if(feof(stations_radio[i].songFD))
+					rewind(stations_radio[i].songFD);	//if the song is over, start over
+
+				tmpIP.sin_addr.s_addr = (inet_addr(DST_IP)+htonl(i));// saddr.sin_addr.s_addr + htonl(i);
+
+				if((len = fread(databuf,1,1024,stations_radio[i].songFD)) < 0)
+					finish("failed to read the file !!\n");
+
+				if(sendto(stations_radio[i].sd,databuf,len,0,(struct sockaddr*)&tmpIP,(size_t)sizeof(tmpIP)) == -1)
+					finish("failed to send song !!\n");
+			}//for
+
+			waitTime.tv_sec=0;
+			waitTime.tv_nsec = 62500000;
+			nanosleep(&waitTime,NULL);
+		}//while
+
+
+
+}//radio_stream
+
+
+void add_new_station(char* songName){
+
+char buf[200];
+
+	// set content of struct saddr and imreq to zero
+	memset((char*)&saddr, 0, sizeof(struct sockaddr_in));
+    memset(&iaddr, 0, sizeof(struct in_addr));
+	memset((char*)&tmpIP, 0, sizeof(struct sockaddr_in));
+
+	snprintf(buf, sizeof(buf), "MP3_FILE/%s",songName);
+
+
+	if(!((stations_radio[songsNumber]).songFD = fopen(buf,"rb")))
+		finish("failed to open file \n");
+	else
+		printf("file opened \n");
+
+	saddr.sin_family = PF_INET;
+   	saddr.sin_port = htons(0); // Use the first free port
+ 	saddr.sin_addr.s_addr = htonl(INADDR_ANY); // bind socket to any interface
+
+	//Temp sockaddr struct
+	tmpIP.sin_addr.s_addr = saddr.sin_addr.s_addr;
+	tmpIP.sin_family = PF_INET;
+	tmpIP.sin_port = htons(0);
+
+
+	//Open a UDP socket
+	if((stations_radio[songsNumber].sd = socket(PF_INET,SOCK_DGRAM,0)) < 0)
+		finish("Error opening socket");
+	else
+		printf("Opening the datagram socket...OK.\n");
+
+
+	if(bind(stations_radio[songsNumber].sd, (struct sockaddr *)&saddr, sizeof(struct sockaddr_in)) == -1)
+		finish("Error binding socket to interface");
+	else
+		printf("bind to interface...ok\n");
+
+
+	iaddr.s_addr = INADDR_ANY; // use DEFAULT interface
+
+	// Set the outgoing interface to DEFAULT
+   	setsockopt(stations_radio[songsNumber].sd, IPPROTO_IP, IP_MULTICAST_IF, &iaddr, sizeof(struct in_addr));
+
+	// Set multicast packet TTL to 255
+	setsockopt(stations_radio[songsNumber].sd, IPPROTO_IP, IP_MULTICAST_TTL, &TTL, sizeof(TTL));
+
+	// set destination multicast address
+   	tmpIP.sin_family = PF_INET;
+   	tmpIP.sin_addr.s_addr = inet_addr(DST_IP)+htonl(songsNumber);//saddr.sin_addr.s_addr + htonl(songsNumber);
+   	tmpIP.sin_port = htons(DST_PORT);
+
+
+	// join the multicast group
+   	setsockopt(stations_radio[songsNumber].sd, IPPROTO_IP, IP_ADD_MEMBERSHIP,DST_IP, 15);
+
+	fp = popen("play-tmp3->/dev/null 2>&1","w");   //open a pipe. output is sent to dev/null
+
+	songsNumber++;
+
+
+
+}
+
+
+
+
+
+/*-------------------------------------------*/
+
+
+
 void Apllication_function(int newSocket){
 
 	unsigned char buffer[1050] ={0};
@@ -365,7 +487,7 @@ void Apllication_function(int newSocket){
 				add_station(souket->name,souket->name_size);
 				remove_ls(souket->souket);
 
-				print_station();
+				//print_station();
 
 				num_16.u16 = stations.num_of_station;
 				buffer[0] = NEW_STATION;
@@ -373,16 +495,18 @@ void Apllication_function(int newSocket){
 				buffer[2] = num_16.u8[1];
 
 
-				for(i=0;i < souket_struct.size;i++)    //init readfds
+				for(i=1;i < souket_struct.size;i++)    //init readfds
 				{
 					if(souket_struct.souket_array[i]!=0)
 					{
-						send(newSocket,buffer,3,0); //sand premit massge
+						DEBUG("souket_struct.souket_array[i]!=0 : %d",souket_struct.souket_array[i]!=0);
+						send(souket_struct.souket_array[i],buffer,3,0); //sand premit massge
 							if(i == -1)
 								perror("send error");
 					}//if send error
 
 				}//for
+
 			}//if the end of reciving
 		}//if find
 
@@ -444,6 +568,18 @@ void Apllication_function(int newSocket){
 				for(i = 0 ;i<song_name_size;i++)
 					song_name[i] = buffer[i + SONG_NAME];
 
+
+				DEBUG("strlen %d  song name size %d",strlen(song_name),song_name_size);
+				 if(strlen(song_name) != song_name_size){
+					send_inv(newSocket,"\n ERROR :) SongNameSize field isn't equal to the size of the song name\n");
+					DEBUG("UP_SONG error 1\n");
+					rmv_souket(newSocket);
+					DEBUG("UP_SONG error 2\n");
+
+				    break;
+				 }
+
+
 				premit = 1; //init premiut
 				if(add_next(newSocket,song_name_size,song_name,song_size.u32) == -1) // case it secssed add the new
 					{
@@ -480,6 +616,84 @@ void Apllication_function(int newSocket){
 
 
 
+int user_input(){
+
+char buffer[20];
+
+DEBUG("user_input()\n");
+	memset((void*) buffer,0,20);
+	read(STREAM,(void*)buffer,20);
+
+	   printf("%s\n",buffer);
+
+	   switch(buffer[0]){
+
+	   case 'q':
+	   case 'Q':
+		   return -1;
+
+	   case 'p':
+	   case 'P':
+		    print_soukets();
+		    print_station();
+		    //LS_iteam();
+		    break;
+
+	   default:
+		   printf("unknown input\n");
+
+	   }
+	return 1; //TODO when return -1 close
+}//user_input
+
+
+//set buffer for
+void make_Wellcom_p(char *buffer){
+	group_16 num_16;
+	int i;
+
+	buffer[REPLY_TYPE] = WELCOME; //0
+
+	num_16.u16 = stations.num_of_station;
+
+	for(i = 0;i<2;i++)
+		buffer[i+NUM_STATION] = num_16.u8[i]; // 1
+
+	for(i = 0 ;i<4;i++)
+		buffer[i+M_GROUP] = mulyicastGroup.u8[i]; //3
+
+	for(i = 0 ;i<2;i++) //7
+		buffer[i+PORT_NUM] = port_num.u8[i];
+
+}//make_Wellcom_p
+
+int make_Song_p(unsigned char *buffer, short station)
+{
+
+	unsigned char song_name_size;
+	int i;
+	char ans[20] = "No souch station";
+
+	buffer[REPLY_TYPE] = ANNOUNCE; //1
+	if(station <= stations.num_of_station-1 && station >=0 )
+	{
+		song_name_size  = strlen(stations.song_name[station]);
+		buffer[NAME_SIZE] = song_name_size;
+		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",(char *)stations.song_name[station]);
+
+	}//if
+	else
+	{
+		song_name_size  = strlen(ans);
+		buffer[NAME_SIZE] = song_name_size;
+		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",ans);
+	}//else
+		return song_name_size + 2;
+
+}//make_Song_p
+
+
+
 
 /* handle the number of client in the server
 --------------------------------------
@@ -501,7 +715,6 @@ void init_souket_array(){
 	souket_struct.souket_array =(int *)calloc(souket_struct.size,sizeof(int));
 
 }
-
 
 void add_souket(int newSocket){
 	int i;
@@ -528,11 +741,10 @@ void add_souket(int newSocket){
 	souket_struct.souket_array[i] = newSocket;	           //place the new souket in the empty place
 	//FD_SET(newSocket,&readfds);
 
-	print_soukets();
+	//print_soukets();
 	//LS_iteam();
 
-
-}
+}//add
 
 
 
@@ -571,7 +783,7 @@ void rmv_souket(int newSocket){
 			}//if
 	}//if	
 	else printf("no argument to remove\n");
-	print_soukets();
+	//print_soukets();
 	DEBUG(" \n");
 	//LS_iteam();
 
@@ -581,15 +793,16 @@ void rmv_souket(int newSocket){
 
 void print_soukets(){
 	int i;
-	for(i=0;i<souket_struct.size;i++){
+
+	printf("client\n");
+	printf("------\n");
+	for(i=1;i<souket_struct.size;i++){
 		if(souket_struct.souket_array[i]!=0)
 		printf("index:	%d	num:	%d	\n",i,souket_struct.souket_array[i]);
 	}
+	printf("number of client: %d\n",souket_struct.num_of_souket -1);
 
 }
-
-
-
 
 
 //init wite size 5 and num of station 5;
@@ -600,9 +813,6 @@ stations.num_of_station = 0;
 stations.song_name = (char **)calloc(stations.size,sizeof(char*));
 
 }//init_station
-
-
-
 
 
 //thi methode get name of song and reurn the station number
@@ -635,7 +845,6 @@ stations.num_of_station += 1;
 }//add_station 
 
 
-
 unsigned char getSongName(char* name,short station){
 
 unsigned char i = 0;
@@ -652,16 +861,15 @@ while(stations.song_name[stations.num_of_station][i] != '\0' )
 void print_station(){
 	int i;
 
+	printf("station\n");
+	printf("-------\n");
 	for(i=0;i<stations.num_of_station;i++)
 		printf("index %d    name: %s \n",i,stations.song_name[i]);
 
+	printf("number of station:%d ",stations.num_of_station);
 	printf("\n");
+
 }
-
-
-
-
-
 
 
 
@@ -685,34 +893,23 @@ void init_Linkls(){
 	Linkls.name_size = 0;
 }
 
-
-
 int add_next(int souket,unsigned char song_name_size,char* name, int num_of_byte){
 
-unsigned char name_buf[0x200];
-unsigned char buf[0x200];
+char name_buf[200];
+char buf[200];
 FILE *temp;
 linkls *current,*add;
 int i;
 
 
-
-
-
-for(i =0;i<song_name_size ; i++)
-	name_buf[i] = name[i];
-	name_buf[i+1] = '/0';
-
-	//if(find_s(buf)) return -1; //TODO check if the same song is all ready there
-
      add = (linkls*)calloc(1,sizeof(linkls)); //case fiald to calloc
      if(add == NULL )
     	 return -1;
 
-snprintf(add->name, sizeof(add->name), "%s",name_buf); // copy the name to station struct
+snprintf(add->name, sizeof(add->name), "%s",name); // copy the name to station struct
 
-snprintf(buf, sizeof(buf), "MP3_FILE/%s",name_buf); // open new file with the name of the station
-DEBUG(buf);
+snprintf(buf, sizeof(buf), "MP3_FILE/%s",name); // open new file with the name of the station
+DEBUG("%s",buf);
 temp = fopen( buf,"w"); //case fiald to open file
 	if(temp == NULL){
 		free(add);
@@ -728,8 +925,6 @@ add->name_size = song_name_size;
 
 
 
-
-
 current = &Linkls;
 
 while(current->next != NULL)
@@ -737,19 +932,18 @@ while(current->next != NULL)
 
 current->next = add;
 
-print_soukets();
+//print_soukets();
 
-LS_iteam();
+//LS_iteam();
 return 1;
 }//add_next
-
 
 linkls * find(int souket){
 linkls *current;
 
 DEBUG("souket %d\n",souket);
 
-LS_iteam();
+//LS_iteam();
 current = &Linkls;
 
 while(current != NULL){
@@ -766,8 +960,6 @@ current = current->next;
 return NULL;
 
 }//ind_Linkls
-
-
 
 int remove_ls(int souket){
 
@@ -797,8 +989,8 @@ if(next->souket == souket)
 	free(next);
 	LS_size();
 	printf("remove souket\n");
-	print_soukets();
-	LS_iteam();
+	//print_soukets();
+	//LS_iteam();
 
 
 	return 1; }
@@ -812,8 +1004,6 @@ printf("no such souket\n");
 return -1;
 
 }//remove_ls
-
-
 
 //for debug
 void LS_size(){
@@ -830,8 +1020,6 @@ void LS_size(){
 	printf("LS_size 0 %d\n",i);
 
 }//num_of_ls
-
-
 
 
 void LS_iteam(){
@@ -852,7 +1040,6 @@ void LS_iteam(){
 
 }//num_of_ls
 
-
 int find_s(char *buf){
 
 	int i;
@@ -863,3 +1050,16 @@ int find_s(char *buf){
 
 	return 0;
 }
+
+void send_inv(int Socket,char *invM){
+	unsigned char buffer[20];
+
+
+	buffer[0] = INVALIDCOMMAND;
+	buffer[1] = strlen(invM);
+	snprintf(buffer+2,(int)buffer[1],"%s",invM);
+
+	send(Socket,buffer,2+buffer[1],0);
+
+}
+
