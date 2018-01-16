@@ -226,9 +226,9 @@ int main( ){
 
 
 	mulyicastGroup.u8[0] = 239;
-	mulyicastGroup.u8[1] = 0;
-	mulyicastGroup.u8[2] = 0;
-	mulyicastGroup.u8[3] = 1;
+	mulyicastGroup.u8[1] = 1;
+	mulyicastGroup.u8[2] = 2;
+	mulyicastGroup.u8[3] = 3;
 
 
 
@@ -462,7 +462,7 @@ void Apllication_function(int newSocket){
 	int i,rcv_f;
 	linkls * souket;
 
-		DEBUG("application\n");
+		//DEBUG("application\n");
 		rcv_f = recv(newSocket, buffer, 1024, 0);
 		if(rcv_f<= 0)
 		{
@@ -490,7 +490,6 @@ void Apllication_function(int newSocket){
 		souket = find(newSocket);
 		if(souket != NULL) // if the souket is sanding song data
 		{
-			DEBUG("souket != NULL\n");
 			souket->num_of_byte -= rcv_f;
 
 				for(i = 0;i< rcv_f ; i++)
@@ -498,22 +497,22 @@ void Apllication_function(int newSocket){
 
 			if(souket->num_of_byte == 0)
 			{
+				//print_station();
+				DEBUG("%s\n",souket->name);
+
 				add_station(souket->name);
 				remove_ls(souket->souket);
 
-				//print_station();
-
 				num_16.u16 = stations.num_of_station;
 				buffer[0] = NEW_STATION;
-				buffer[1] = num_16.u8[0];
-				buffer[2] = num_16.u8[1];
+				buffer[1] = num_16.u8[1];
+				buffer[2] = num_16.u8[0];
 
 
 				for(i=1;i < souket_struct.size;i++)    //init readfds
 				{
 					if(souket_struct.souket_array[i]!=0)
 					{
-						DEBUG("souket_struct.souket_array[i]!=0 : %d",souket_struct.souket_array[i]!=0);
 						send(souket_struct.souket_array[i],buffer,3,0); //send new station
 							if(i == -1)
 								perror("send error");
@@ -546,8 +545,8 @@ void Apllication_function(int newSocket){
 		case ASK_SONG:	  								  //Ask_song
 
 			DEBUG("ASK_SONG\n");
-			num_16.u8[0] = buffer[0+STAEION_NUM];
-			num_16.u8[1] = buffer[1+STAEION_NUM];
+			num_16.u8[1] = buffer[0+STAEION_NUM];
+			num_16.u8[0] = buffer[1+STAEION_NUM];
 
 			i = make_Song_p(buffer,num_16.u16);
 			i= send(newSocket,buffer,i,0);
@@ -579,9 +578,11 @@ void Apllication_function(int newSocket){
 				for(i = 0 ;i<1;i++)
 					song_name_size = buffer[i+SONG_NAME_SIZE];
 
+				DEBUG("UP_SONG name size %d",song_name_size);
+
 				for(i = 0 ;i<song_name_size;i++)
 					song_name[i] = buffer[i + SONG_NAME];
-					song_name[i+1] = '\0';
+					song_name[i] = '\0';
 
 					/*
 				DEBUG("strlen %d  song name size %d",strlen(song_name),song_name_size);
@@ -672,14 +673,20 @@ void make_Wellcom_p(char *buffer){
 
 	num_16.u16 = stations.num_of_station;
 
-	for(i = 0;i<2;i++)
-		buffer[i+NUM_STATION] = num_16.u8[i]; // 1
+	//for(i = 0;i<2;i++)
+		buffer[0+NUM_STATION] = num_16.u8[1]; // 1
+		buffer[1+NUM_STATION] = num_16.u8[0]; // 1
 
-	for(i = 0 ;i<4;i++)
-		buffer[i+M_GROUP] = mulyicastGroup.u8[i]; //3
+	//for(i = 0 ;i<4;i++)
+		buffer[0+M_GROUP] = mulyicastGroup.u8[3]; //3
+		buffer[1+M_GROUP] = mulyicastGroup.u8[2]; //3
+		buffer[2+M_GROUP] = mulyicastGroup.u8[1]; //3
+		buffer[3+M_GROUP] = mulyicastGroup.u8[0]; //3
 
-	for(i = 0 ;i<2;i++) //7
-		buffer[i+PORT_NUM] = port_num.u8[i];
+	//for(i = 0 ;i<2;i++) //7
+		buffer[0+PORT_NUM] = port_num.u8[1];
+		buffer[1+PORT_NUM] = port_num.u8[0];
+
 
 }//make_Wellcom_p
 
@@ -918,7 +925,7 @@ return 1;
 linkls * find(int souket){
 linkls *current;
 
-DEBUG("souket %d\n",souket);
+//DEBUG("souket %d\n",souket);
 current = &Linkls;
 
 while(current != NULL)
