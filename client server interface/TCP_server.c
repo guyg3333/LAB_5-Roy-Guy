@@ -6,11 +6,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
-
+#include <sys/file.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
 #define DST_IP "239.0.0.1"
 #define DST_PORT 6000
 
+#define MAX_NUM_OF_STATION 100
 
 #define STREAM	0
 #define DEBUG	  printf //uncomment to remove all printf's
@@ -116,15 +119,13 @@ typedef struct linkls{
 /*handle the number of station and their song name
 ---------------------------------------------------
 
-	void init_station_struct ()
-	void add_station(char * song_name , unsigned char name_size )
+	void add_station(char * song_name)
 	unsigned char getSongName(char* name,short station)
 */
 typedef struct{
 
 	int num_of_station;
-	int size;
-	char **song_name;
+	char * song_name[100];
 
 }dynamic_station;
 
@@ -148,7 +149,6 @@ static dynamic_station stations;
 static  fd_set readfds;
 static linkls Linkls;
 
-static int max;
 struct sockaddr_in tmpIP;
 struct in_addr iaddr;
 struct sockaddr_in saddr;
@@ -164,6 +164,7 @@ int cn = 0,ssent,i=0;
 FILE *fp;
 station stations_radio[100];
 int songsNumber = 0;
+struct timeval timeout;
 
 
 
@@ -188,10 +189,8 @@ void rmv_souket(int newSocket);
 linkls * find(int souket);
 int add_next(int souket,unsigned char song_name_size,char* name, int num_of_byte);
 int remove_ls(int souket);
-void add_station(char* song_name , unsigned char name_size );
 void LS_iteam();
 void print_soukets();
-void init_station_struct ();
 void send_inv(int Socket,char *invM);
 int user_input();
 void print_station();
@@ -199,6 +198,8 @@ void add_new_station(char* songName);
 void *radio_stream();
 void init_Linkls();
 void make_Wellcom_p(char *buffer);
+void add_station(char* song_name );
+void resetTimer();
 
 
 
@@ -217,7 +218,8 @@ int main( ){
 
 	init_souket_array();   // init the souket_struct
 	init_Linkls();
-	init_station_struct();
+	stations.num_of_station = 0;
+
 
 	//struct timeval timeout;
 	DEBUG("Start \n");
@@ -247,8 +249,8 @@ int main( ){
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(PORT);
 	//serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	//serverAddr.sin_addr.s_addr = inet_addr("127.168.1.2");
-	serverAddr.sin_addr.s_addr = inet_addr("132.72.105.95");
+	serverAddr.sin_addr.s_addr = inet_addr("127.1.1.1");
+	//serverAddr.sin_addr.s_addr = inet_addr("132.72.105.95");
 
 	memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
 
@@ -279,18 +281,8 @@ int main( ){
 	while(1){
 
 
-
-		//DEBUG("main while\n");
-		FD_ZERO(&readfds); 					//clear the readfds
-
-		for(i=0;i < souket_struct.size;i++)    {   	//init readfds
-			if(souket_struct.souket_array[i]!=0)
-			FD_SET(souket_struct.souket_array[i],&readfds); 
-			}
-
-		FD_SET(0,&readfds); //Stream
-
-		if(select(max+1,&readfds, NULL,NULL,NULL)<0){     	// wait for select signal
+		resetTimer();
+		if(select(100,&readfds,NULL,NULL,&timeout)<0){     	// wait for select signal
 
 			perror("select");
 			//goto CLOSE;
@@ -359,7 +351,6 @@ void *radio_stream(){
 int i;
 songsNumber = 0;
 DEBUG("enetr to radio_stream\n");
-//TODO closing
 
 	while(1)
 		{
@@ -402,9 +393,7 @@ DEBUG("add_new_station\n");
     memset(&iaddr, 0, sizeof(struct in_addr));
 	memset((char*)&tmpIP, 0, sizeof(struct sockaddr_in));
 
-	//snprintf(buf, sizeof(buf), "MP3_FILE/%s",songName);
-
-
+	snprintf(buf, 200, "MP3_FILE/%s",songName);
 	if(!((stations_radio[songsNumber]).songFD = fopen(songName,"rb")))
 		finish("failed to open file \n");
 	else
@@ -483,6 +472,15 @@ void Apllication_function(int newSocket){
 			else
 			printf("finack -rm: %d \n",newSocket);
 
+
+			souket = find(newSocket);
+			if(souket!=NULL)            //if the socket is closing while is uploading file delete the file
+			{
+				snprintf(song_name, sizeof(song_name), "MP3_FILE/%s",souket->name);
+				remove(song_name);
+
+			}
+
 			rmv_souket(newSocket); //TODO if process is uploading delete the unfinish file
 			return;
 		}
@@ -500,7 +498,7 @@ void Apllication_function(int newSocket){
 
 			if(souket->num_of_byte == 0)
 			{
-				add_station(souket->name,souket->name_size);
+				add_station(souket->name);
 				remove_ls(souket->souket);
 
 				//print_station();
@@ -516,7 +514,7 @@ void Apllication_function(int newSocket){
 					if(souket_struct.souket_array[i]!=0)
 					{
 						DEBUG("souket_struct.souket_array[i]!=0 : %d",souket_struct.souket_array[i]!=0);
-						send(souket_struct.souket_array[i],buffer,3,0); //sand premit massge
+						send(souket_struct.souket_array[i],buffer,3,0); //send new station
 							if(i == -1)
 								perror("send error");
 					}//if send error
@@ -583,7 +581,7 @@ void Apllication_function(int newSocket){
 
 				for(i = 0 ;i<song_name_size;i++)
 					song_name[i] = buffer[i + SONG_NAME];
-					song_name[i=1] = '\0';
+					song_name[i+1] = '\0';
 
 					/*
 				DEBUG("strlen %d  song name size %d",strlen(song_name),song_name_size);
@@ -663,6 +661,8 @@ DEBUG("user_input()\n");
 }//user_input
 
 
+
+
 //set buffer for
 void make_Wellcom_p(char *buffer){
 	group_16 num_16;
@@ -686,7 +686,6 @@ void make_Wellcom_p(char *buffer){
 int make_Song_p(unsigned char *buffer, short station){
 
 	unsigned char song_name_size;
-	int i;
 	char ans[20] = "No souch station";
 
 	buffer[REPLY_TYPE] = ANNOUNCE; //1
@@ -701,7 +700,7 @@ int make_Song_p(unsigned char *buffer, short station){
 	{
 		song_name_size  = strlen(ans);
 		buffer[NAME_SIZE] = song_name_size;
-		snprintf(buffer + SONG_AN_NAME, song_name_size +1, "%s",ans);
+		snprintf((char * )buffer + SONG_AN_NAME, 200, "%s",ans);
 		//strcpy((char *)buffer + SONG_AN_NAME, ans);
 	}//else
 		return song_name_size + 2;
@@ -735,8 +734,6 @@ void init_souket_array(){
 void add_souket(int newSocket){
 	int i;
 
-	max |= newSocket;
-
 	if(souket_struct.num_of_souket+1 >= souket_struct.size ) // if there is need to make some more room in the array
 	{
 		souket_struct.souket_array  =(int *)realloc(souket_struct.souket_array,(souket_struct.size+5)*sizeof(int)); // malloc new space
@@ -768,7 +765,6 @@ void rmv_souket(int newSocket){
 	int i;
 	int *new,*temp;
 
-	max &=~newSocket;
 	remove_ls(newSocket);  // cheak if there is a file
 
 
@@ -821,56 +817,28 @@ void print_soukets(){
 }
 
 
-//init wite size 5 and num of station 5;
-void init_station_struct (){
-
-stations.size = 5;
-stations.num_of_station = 0;
-stations.song_name = (char **)calloc(stations.size,sizeof(char*));
-
-}//init_station
-
-
 //thi methode get name of song and reurn the station number
-void add_station(char* song_name , unsigned char name_size ){
+void add_station(char* song_name ){
 int i;
+i = strlen(song_name);
 
-DEBUG("add_station 1 \n");
-
-if(stations.num_of_station +1 >= stations.size){ //realloc some more room
-
-	stations.song_name =(char **)realloc(stations.size+5,sizeof(char*));
-	stations.size += 5; }
-
-DEBUG("add_station 2 \n");
-
-stations.song_name[stations.num_of_station] = (char *)malloc(name_size*sizeof(char*));
-
-DEBUG("add_station 3 \n");
-
-
-for ( i=0;i<name_size;i++)
-	stations.song_name[stations.num_of_station][i] = song_name[i];
-
-DEBUG("add_station 4 %s \n",stations.song_name[stations.num_of_station]);
-
-
-stations.num_of_station += 1;
-
+if(stations.num_of_station +1 < MAX_NUM_OF_STATION)
+	{
+	stations.song_name[stations.num_of_station] = (char *)malloc(i*sizeof(char*));
+	strcpy(stations.song_name[stations.num_of_station],song_name);
+	stations.num_of_station ++;
+	return;
+	}
+printf("cant add more station");
 }//add_station 
 
 
+//
 unsigned char getSongName(char* name,short station){
 
-unsigned char i = 0;
+strcpy(name,stations.song_name[station]);
+return strlen(name);
 
-while(stations.song_name[stations.num_of_station][i] != '\0' )
-	{	
-	name[i] = stations.song_name[stations.num_of_station][i];
-	i++;
-	}//while
-
-	return i+1;
 }//getSongName
 
 void print_station(){
@@ -910,24 +878,23 @@ void init_Linkls(){
 
 int add_next(int souket,unsigned char song_name_size,char* name, int num_of_byte){
 
-char buf[200];
+char buf[200] ;
 FILE *temp;
 linkls *current,*add;
 
-
-     add = (linkls*)calloc(1,sizeof(linkls)); //case fiald to calloc
-     if(add == NULL )
-    	 return -1;
-
+ add = (linkls*)calloc(1,sizeof(linkls)); //case fiald to calloc
+ if(add == NULL )
+ return -1;
 
 strcpy(add->name,name); // copy the name to station struct
 snprintf(buf, sizeof(buf), "MP3_FILE/%s",name); // open new file with the name of the station
-DEBUG("%s",buf);
 temp = fopen( buf,"w"); //case fiald to open file
-	if(temp == NULL){
+	if(temp == NULL)
+	{
 		free(add);
 		perror("file");
-		return -1;}
+		return -1;
+	}
 
 
 add->fd = temp ;
@@ -937,39 +904,32 @@ add->next = NULL;
 add->name_size = song_name_size;
 
 
-
 current = &Linkls;
-
 while(current->next != NULL)
 	current = current->next;
 
 current->next = add;
-
-//print_soukets();
-
-//LS_iteam();
 return 1;
 }//add_next
+
+
+
 
 linkls * find(int souket){
 linkls *current;
 
 DEBUG("souket %d\n",souket);
-
-//LS_iteam();
 current = &Linkls;
 
-while(current != NULL){
-DEBUG("current.souket %d\n",current->souket);
+while(current != NULL)
+	{
 
-if(current->souket == souket)
-{
-return current;
-}
+	if(current->souket == souket)
+		return current;
 
-current = current->next;
+	current = current->next;
 
-}
+	}
 return NULL;
 
 }//find
@@ -1043,7 +1003,7 @@ void LS_iteam(){
 	printf("\n");
 	while(current != NULL){
 
-		printf("index:	%d	fd:	%d	num_of_byte:	%d	souket:	%d	next:	%p\n",i,current->fd,current->num_of_byte,current->souket,current->next);
+		printf("index:	%d\n",current->souket);
 		current = current->next;
 		i++;
 	}
@@ -1069,9 +1029,25 @@ void send_inv(int Socket,char *invM){
 
 	buffer[0] = INVALIDCOMMAND;
 	buffer[1] = strlen(invM);
-	snprintf(buffer+2,(int)buffer[1],"%s",invM);
+	snprintf((char *) buffer+2,(int)buffer[1],"%s",invM);
 
 	send(Socket,buffer,2+buffer[1],0);
 
 }
 
+void resetTimer()
+{
+	int i;
+	FD_ZERO(&readfds); 					//clear the readfds
+	for(i=0;i < souket_struct.size;i++)
+	{   	//init readfds
+		if(souket_struct.souket_array[i]!=0)
+		FD_SET(souket_struct.souket_array[i],&readfds);
+	}
+
+	FD_SET(0,&readfds); //Stream
+
+	timeout.tv_sec = 0;
+	timeout.tv_usec = 1000*100;  		//100 ms
+	return;
+}
