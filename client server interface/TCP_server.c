@@ -215,7 +215,7 @@ int main( ){
 	pthread_t Stream;
 
 
-
+	mkdir("MP3_FILE", 0777);
 	init_souket_array();   // init the souket_struct
 	init_Linkls();
 	stations.num_of_station = 0;
