@@ -226,9 +226,9 @@ int main( ){
 
 
 	mulyicastGroup.u8[0] = 239;
-	mulyicastGroup.u8[1] = 1;
-	mulyicastGroup.u8[2] = 2;
-	mulyicastGroup.u8[3] = 3;
+	mulyicastGroup.u8[1] = 0;
+	mulyicastGroup.u8[2] = 0
+	mulyicastGroup.u8[3] = 1
 
 
 
@@ -248,8 +248,8 @@ int main( ){
 
 	serverAddr.sin_family = AF_INET;
 	serverAddr.sin_port = htons(PORT);
-	//serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serverAddr.sin_addr.s_addr = inet_addr("127.1.1.1");
+	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	//rverAddr.sin_addr.s_addr = inet_addr("127.1.1.1");
 	//serverAddr.sin_addr.s_addr = inet_addr("132.72.105.95");
 
 	memset(serverAddr.sin_zero, '\0', sizeof serverAddr.sin_zero);
@@ -394,7 +394,7 @@ DEBUG("add_new_station\n");
 	memset((char*)&tmpIP, 0, sizeof(struct sockaddr_in));
 
 	snprintf(buf, 200, "MP3_FILE/%s",songName);
-	if(!((stations_radio[songsNumber]).songFD = fopen(songName,"rb")))
+	if(!((stations_radio[songsNumber]).songFD = fopen(buf,"rb")))
 		finish("failed to open file \n");
 	else
 		printf("file opened \n");
@@ -572,8 +572,12 @@ void Apllication_function(int newSocket){
 			//{
 
 
-				for(i = 0 ;i<4;i++)
-					song_size.u8[i] = buffer[i+SONG_SIZE];
+			//	for(i = 0 ;i<4;i++)
+					song_size.u8[0] = buffer[3+SONG_SIZE];
+					song_size.u8[1] = buffer[2+SONG_SIZE];
+					song_size.u8[2] = buffer[1+SONG_SIZE];
+					song_size.u8[3] = buffer[0+SONG_SIZE];
+
 
 				for(i = 0 ;i<1;i++)
 					song_name_size = buffer[i+SONG_NAME_SIZE];
