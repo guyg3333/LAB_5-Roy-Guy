@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <stdlib.h>
@@ -10,8 +11,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
-#define DST_IP "239.0.0.1"
-#define DST_PORT 6000
+
 
 #define MAX_NUM_OF_STATION 100
 
@@ -166,8 +166,9 @@ station stations_radio[100];
 int songsNumber = 0;
 struct timeval timeout;
 
-
-
+char DST_IP[50] = "239.0.0.1";
+short DST_PORT = 6000;
+short DST_TCP_PORT;
 
 
 void finish(char* s){
@@ -200,14 +201,27 @@ void init_Linkls();
 void make_Wellcom_p(char *buffer);
 void add_station(char* song_name );
 void resetTimer();
+group_32 ip_to_group32(char * addr);
+void 	print_address();
 
 
 
 
-int main( ){
+int main(int argc, char * argv[] ){
 
 	int welcomeSocket, newSocket,i;
 
+
+
+	  if (argc < 4) {
+	              printf("./radio_server <tcpport> <multicastip> <udpport> <file1> <file2> ... \n");
+	              exit(1);
+	          }
+
+
+
+	strcpy(DST_IP,argv[2]);
+	DST_PORT = atoi(argv[3]);
 	//stations_radio =
 	struct sockaddr_in serverAddr;
 	struct sockaddr_storage serverStorage;
@@ -221,20 +235,26 @@ int main( ){
 	stations.num_of_station = 0;
 
 
+
 	//struct timeval timeout;
 	DEBUG("Start \n");
 
+	mulyicastGroup = ip_to_group32(argv[2]);
+	if(mulyicastGroup.u32 == -1){
+		printf("invalid multicast ip try agin \n");
+		return 1;
+	}
 
+	/*
 	mulyicastGroup.u8[0] = 239;
 	mulyicastGroup.u8[1] = 0;
-	mulyicastGroup.u8[2] = 0
-	mulyicastGroup.u8[3] = 1
+	mulyicastGroup.u8[2] = 0;
+	mulyicastGroup.u8[3] = 1;
+*/
 
 
-
-	port_num.u16 = 6000;
-
-
+	port_num.u16 = DST_PORT;
+	DST_TCP_PORT = atoi(argv[1]);
 
 
     pthread_create(&Stream, NULL, radio_stream, NULL);
@@ -247,7 +267,7 @@ int main( ){
 
 
 	serverAddr.sin_family = AF_INET;
-	serverAddr.sin_port = htons(PORT);
+	serverAddr.sin_port = htons(atoi(argv[1])); // set TCP port
 	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 	//rverAddr.sin_addr.s_addr = inet_addr("127.1.1.1");
 	//serverAddr.sin_addr.s_addr = inet_addr("132.72.105.95");
@@ -282,7 +302,7 @@ int main( ){
 
 
 		resetTimer();
-		if(select(100,&readfds,NULL,NULL,&timeout)<0){     	// wait for select signal
+		if(select(50,&readfds,NULL,NULL,&timeout)<0){     	// wait for select signal
 
 			perror("select");
 			//goto CLOSE;
@@ -637,13 +657,12 @@ void Apllication_function(int newSocket){
 
 int user_input(){
 
-char buffer[20];
+char buffer[200];
 
-DEBUG("user_input()\n");
-	memset((void*) buffer,0,20);
-	read(STREAM,(void*)buffer,20);
+	memset((void*) buffer,0,200);
+	read(STREAM,(void*)buffer,200);
 
-	   printf("%s\n",buffer);
+	   //printf("%s\n",buffer);
 
 	   switch(buffer[0]){
 
@@ -653,6 +672,7 @@ DEBUG("user_input()\n");
 
 	   case 'p':
 	   case 'P':
+		   	print_address();
 		    print_soukets();
 		    print_station();
 		    //LS_iteam();
@@ -662,6 +682,8 @@ DEBUG("user_input()\n");
 		   printf("unknown input\n");
 
 	   }
+
+
 	return 1;
 }//user_input
 
@@ -852,14 +874,18 @@ return strlen(name);
 
 }//getSongName
 
+
 void print_station(){
 	int i;
 
-	printf("station\n");
-	printf("-------\n");
+	printf("|======== STATION & SONG NAME ==================================\n");
+	printf("|-----------------------------------------------------------\n");
+	printf("|STATION NUMBER		|SONG NAME		|\n");
+	printf("|-----------------------------------------------------------\n");
 	for(i=0;i<stations.num_of_station;i++)
-		printf("index %d    name: %s \n",i,stations.song_name[i]);
+		printf("%d		%s \n",i,stations.song_name[i]);
 
+	printf("|-----------------------------------------------------------\n");
 	printf("number of station:%d ",stations.num_of_station);
 	printf("\n");
 
@@ -1056,9 +1082,63 @@ void resetTimer()
 		FD_SET(souket_struct.souket_array[i],&readfds);
 	}
 
+
+
 	FD_SET(0,&readfds); //Stream
 
 	timeout.tv_sec = 0;
 	timeout.tv_usec = 1000*100;  		//100 ms
 	return;
 }
+
+// this function turn string ip into union group 32
+group_32 ip_to_group32(char * addr){
+	group_32 ans;
+	char temp[50];
+	int i=0,j=0,num;
+
+
+while(*addr != '\0' && i<4)
+	{
+	printf("%c\n",*addr);
+
+		if(*addr == '.')
+		{
+			 num = atoi(temp);
+			if(num > 255)
+			{
+				ans.u32 = -1;
+				return ans;
+			}
+			ans.u8[i] = num;
+			memset((void*) temp,0,50);
+			i++; addr++; j=0;
+		}
+		temp[j] = *addr++; j++;
+	}
+num = atoi(temp);
+
+if(num > 255)
+{
+	ans.u32 = -1;
+	return ans;
+
+}
+ans.u8[i] = num;
+
+
+return ans;
+}//set_addr
+
+void 	print_address(){
+
+	printf("|======== ADDRESS & PORTS ==================================\n");
+	printf("|-----------------------------------------------------------\n");
+	printf("||MULTICAST ADDR	|UDP PORT	|TCP PORT	|\n");
+	printf("|-----------------------------------------------------------\n");
+	printf("|%d.%d.%d.%d		|%d		|%d		|\n",mulyicastGroup.u8[0],mulyicastGroup.u8[1],mulyicastGroup.u8[2],mulyicastGroup.u8[3],DST_PORT,DST_TCP_PORT);
+	printf("|-----------------------------------------------------------\n");
+
+}
+
+
