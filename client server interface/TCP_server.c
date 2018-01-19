@@ -293,6 +293,12 @@ int main(int argc, char * argv[] ){
 */
 
 
+	if(argc > 4)
+		for(i = 4 ;i < argc ;i ++)
+			add_station(argv[i]);
+
+
+
 	START:
 
 	printf("Enter:\n1. 'p' to see all the data bases of the available stations\n2. 'q' to quit the program\n");
